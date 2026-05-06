@@ -716,7 +716,7 @@ async function doSync(){
   const pfP=S.pit_bf.filter(e=>!S.syncedIds.has(e.id));
   const prP=S.pit_runs.filter(e=>!S.syncedIds.has(e.id));
   const gP=S.games.filter(g=>!S.syncedIds.has('g_'+g.id));
-  if(!bP.length&&!pfP.length&&!prP.length){toast('동기화할 데이터 없음');return;}
+  if(!bP.length&&!pfP.length&&!prP.length&&!S.rosterDirty){toast('동기화할 데이터 없음');return;}
   S.syncing=true;r();
   try{
     // no-cors: CORS 검사 없이 전송. 응답 본문 읽기 불가하지만 데이터는 Apps Script에 수신됨
