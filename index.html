@@ -196,7 +196,7 @@ let S={
   curPit:null,pitSub:0,
   game:null,gcnt:1,games:[],
   blog:[],pit_bf:[],pit_runs:[],
-  scriptUrl:"",lastSync:null,syncing:false,loading:false,syncedIds:new Set(),
+  scriptUrl:"",lastSync:null,syncing:false,loading:false,rosterDirty:false,syncedIds:new Set(),
   rosterSub:0,
 };
 
@@ -273,7 +273,7 @@ function batAgg(){
 
 function getBattersThisGame(){if(!S.game)return ROSTER.filter(p=>p.r==='b');const app=new Set(S.blog.filter(e=>e.gid===S.game.id).map(e=>e.pno));const all=ROSTER.filter(p=>p.r==='b');return[...all.filter(p=>app.has(p.no)),...all.filter(p=>!app.has(p.no))];}
 function getRunsThisGame(pno){if(!S.game)return 0;return S.blog.filter(e=>e.gid===S.game.id&&e.pno===pno).reduce((s,e)=>s+e.run,0);}
-function pendingCount(){return S.blog.filter(e=>!S.syncedIds.has(e.id)).length+S.pit_bf.filter(e=>!S.syncedIds.has(e.id)).length+S.pit_runs.filter(e=>!S.syncedIds.has(e.id)).length;}
+function pendingCount(){return S.blog.filter(e=>!S.syncedIds.has(e.id)).length+S.pit_bf.filter(e=>!S.syncedIds.has(e.id)).length+S.pit_runs.filter(e=>!S.syncedIds.has(e.id)).length+(S.rosterDirty?1:0);}
 
 function renderGHdr(){
   const pc=pendingCount();
@@ -567,14 +567,14 @@ function confirmEditPlayer(no,role){
   if(!newName||!newPos){toast('이름과 포지션을 입력해주세요','err');return;}
   const idx=ROSTER.findIndex(x=>x.no===no&&x.r===role);
   if(idx>=0)ROSTER[idx]={...ROSTER[idx],no:isNaN(newNo)?no:newNo,name:newName,pos:newPos};
-  save();closeModal();r();toast(`${newName} 저장 완료`,'ok');
+  S.rosterDirty=true;save();closeModal();r();toast(`${newName} 저장 완료`,'ok');
 }
 
 function deletePlayer(no,role){
   if(!confirm('이 선수를 삭제하시겠습니까?'))return;
   const idx=ROSTER.findIndex(x=>x.no===no&&x.r===role);
   if(idx>=0)ROSTER.splice(idx,1);
-  save();closeModal();r();toast('삭제 완료');
+  S.rosterDirty=true;save();closeModal();r();toast('삭제 완료');
 }
 
 function showAddPlayerModal(){
@@ -610,7 +610,7 @@ function confirmAddPlayer(type){
   if(ROSTER.find(x=>x.no===no&&x.r===type)){toast('같은 번호의 선수가 있습니다','err');return;}
   ROSTER.push({no,name,pos,r:type});
   ROSTER.sort((a,b)=>a.no-b.no);
-  save();closeModal();r();toast(`${name} 추가 완료`,'ok');
+  S.rosterDirty=true;save();closeModal();r();toast(`${name} 추가 완료`,'ok');
 }
 
 function rSettings(){
@@ -690,12 +690,18 @@ async function loadFromSheets(){
       if(!S.games.find(x=>x.id===g.id))S.games.push(g);
     }
     // 불러온 데이터는 이미 시트에 있으므로 synced 처리
+    // 선수 명단 복원 (시트 명단이 있으면 우선 적용)
+    if(data.roster&&data.roster.length>0){
+      ROSTER.splice(0,ROSTER.length,...data.roster);
+      S.rosterDirty=false;
+    }
     S.blog.forEach(e=>S.syncedIds.add(e.id));
     S.pit_bf.forEach(e=>S.syncedIds.add(e.id));
     S.pit_runs.forEach(e=>S.syncedIds.add(e.id));
     S.games.forEach(g=>S.syncedIds.add('g_'+g.id));
     save();
-    toast(added>0?`✓ ${added}건 불러오기 완료`:'이미 최신 데이터입니다','ok');
+    const rosterMsg=data.roster&&data.roster.length>0?` / 선수 ${data.roster.length}명`:'';
+    toast(added>0?`✓ ${added}건 불러오기 완료${rosterMsg}`:`✓ 선수 명단 업데이트${rosterMsg}`,'ok');
   }catch(e){
     toast('불러오기 실패 — URL 또는 배포 설정 확인','err');
     console.error(e);
@@ -717,10 +723,12 @@ async function doSync(){
     await fetch(S.scriptUrl,{
       method:'POST',
       mode:'no-cors',
-      body:JSON.stringify({type:'sync',games:gP,bat_log:bP,pit_bf:pfP,pit_runs:prP})
+      body:JSON.stringify({type:'sync',games:gP,bat_log:bP,pit_bf:pfP,pit_runs:prP,
+        roster:ROSTER})  // 선수 명단 항상 포함
     });
     // no-cors는 응답을 읽을 수 없으므로 에러 없으면 성공으로 처리
     bP.forEach(e=>S.syncedIds.add(e.id));pfP.forEach(e=>S.syncedIds.add(e.id));prP.forEach(e=>S.syncedIds.add(e.id));gP.forEach(g=>S.syncedIds.add('g_'+g.id));
+    S.rosterDirty=false;  // 선수 명단 동기화 완료
     S.lastSync=Date.now();save();
     const total=bP.length+pfP.length+prP.length;
     toast(`☁ 동기화 완료 (${total}건 전송)`,'ok');
