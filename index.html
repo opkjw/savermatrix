@@ -251,23 +251,60 @@ function batAgg(){
   const m={};
   for(const e of S.blog){
     const k=e.pn;
-    if(!m[k])m[k]={name:k,no:e.pno,pa:0,ab:0,h:0,d2:0,d3:0,hr:0,bb:0,hbp:0,so:0,sf:0,rbi:0,run:0,sb:0,cs:0,gids:new Set()};
+    if(!m[k])m[k]={name:k,no:e.pno,
+      pa:0,ab:0,h:0,d2:0,d3:0,hr:0,bb:0,hbp:0,so:0,sf:0,
+      rbi:0,run:0,sb:0,cs:0,gids:new Set()};
     const t=m[k],s=paS(e.oc);
     for(const f of['pa','ab','h','d2','d3','hr','bb','hbp','so','sf'])t[f]+=s[f];
     t.rbi+=e.rbi;t.run+=e.run;t.sb+=e.sb;t.cs+=e.cs;
     if(e.gid)t.gids.add(e.gid);
   }
-  return Object.values(m).map(t=>{
-    const avg=t.ab>0?t.h/t.ab:0;
-    const od=t.ab+t.bb+t.hbp+t.sf;
-    const obp=od>0?(t.h+t.bb+t.hbp)/od:0;
-    const slg=t.ab>0?(t.h+t.d2+2*t.d3+3*t.hr)/t.ab:0;
-    const iso=t.ab>0?(t.d2+2*t.d3+3*t.hr)/t.ab:0;
-    const bd=t.ab-t.so-t.hr+t.sf;
-    const babip=bd>0?(t.h-t.hr)/bd:0;
-    return{...t,avg,obp,slg,ops:obp+slg,iso,babip,
-      bbp:t.pa>0?t.bb/t.pa:0,kp:t.pa>0?t.so/t.pa:0,
-      g:t.gids.size};
+
+  // ── 1차 계산: 개인 지표 ──────────────────────────────────
+  // wOBA 가중치 (KBO 근사값)
+  const wBB=0.69,wHBP=0.72,w1B=0.89,w2B=1.27,w3B=1.62,wHR=2.10;
+
+  const players = Object.values(m).map(t=>{
+    const singles=t.h-t.d2-t.d3-t.hr;
+    const avg  = t.ab>0?t.h/t.ab:0;
+    const od   = t.ab+t.bb+t.hbp+t.sf;
+    const obp  = od>0?(t.h+t.bb+t.hbp)/od:0;
+    const slg  = t.ab>0?(t.h+t.d2+2*t.d3+3*t.hr)/t.ab:0;
+    const iso  = t.ab>0?(t.d2+2*t.d3+3*t.hr)/t.ab:0;
+    const bd   = t.ab-t.so-t.hr+t.sf;
+    const babip= bd>0?(t.h-t.hr)/bd:0;
+    const bbp  = t.pa>0?t.bb/t.pa:0;
+    const kp   = t.pa>0?t.so/t.pa:0;
+    const bbk  = t.so>0?t.bb/t.so:(t.bb>0?99:0);
+
+    // wOBA
+    const woba_n=wBB*t.bb+wHBP*t.hbp+w1B*singles+w2B*t.d2+w3B*t.d3+wHR*t.hr;
+    const woba_d=t.ab+t.bb+t.hbp+t.sf;
+    const woba  =woba_d>0?woba_n/woba_d:0;
+
+    return{...t,avg,obp,slg,ops:obp+slg,iso,babip,bbp,kp,bbk,woba,
+      singles,g:t.gids.size};
+  });
+
+  // ── 2차 계산: 팀 평균 기반 지표 ─────────────────────────
+  const totalPA=players.reduce((s,p)=>s+p.pa,0);
+  // 리그(팀) 평균 wOBA — PA 가중 평균
+  const lgwOBA=totalPA>0
+    ?players.reduce((s,p)=>s+p.woba*p.pa,0)/totalPA
+    :0.320;
+
+  return players.map(p=>{
+    // wRC+ = (개인 wOBA / 팀 평균 wOBA) × 100
+    const wrc_plus=lgwOBA>0?Math.round(p.woba/lgwOBA*100):100;
+
+    // WAR 근사치
+    // 타격 기여(Batting Runs) = (wOBA - lgwOBA) / 1.15 × PA
+    // 대체선수 기여 = PA당 +2 runs/100 (최저 기여값)
+    const bat_runs=(p.woba-lgwOBA)/1.15*p.pa;
+    const repl_runs=2.0*p.pa/100;
+    const war=(bat_runs+repl_runs)/10;
+
+    return{...p,wrc_plus,war};
   }).sort((a,b)=>b.ops-a.ops);
 }
 
@@ -381,18 +418,32 @@ function rStats(){
     h+=`<div class="seclbl">📊 타자 세이버매트릭스</div>
     <div class="statwrap"><table><thead><tr>
       <th style="text-align:left;min-width:58px">선수</th>
-      <th title="타율">AVG</th><th title="출루율">OBP</th>
-      <th title="장타율">SLG</th><th title="출루+장타">OPS</th>
-      <th title="순수장타율">ISO</th><th title="인플레이타율">BABIP</th>
-      <th title="볼넷비율">BB%</th><th title="삼진비율">K%</th>
+      <th title="타율">AVG</th>
+      <th title="출루율">OBP</th>
+      <th title="장타율">SLG</th>
+      <th title="출루율+장타율">OPS</th>
+      <th title="가중 출루율 (BB×0.69 + HBP×0.72 + 1B×0.89 + 2B×1.27 + 3B×1.62 + HR×2.10)">wOBA</th>
+      <th title="팀 평균 대비 득점 생산력 (100=팀평균)">wRC+</th>
+      <th title="순수장타율 = SLG - AVG">ISO</th>
+      <th title="인플레이 타율">BABIP</th>
+      <th title="볼넷 비율">BB%</th>
+      <th title="삼진 비율">K%</th>
+      <th title="볼넷/삼진 비율">BB/K</th>
+      <th title="WAR 근사치 = (타격기여+대체기여)/10">WAR</th>
     </tr></thead><tbody>${bs.map(s=>`<tr>
       <td style="text-align:left;font-weight:600">${s.name}</td>
-      <td>${s.avg.toFixed(3)}</td><td>${s.obp.toFixed(3)}</td>
+      <td>${s.avg.toFixed(3)}</td>
+      <td>${s.obp.toFixed(3)}</td>
       <td>${s.slg.toFixed(3)}</td>
       <td class="hi" style="font-weight:700">${s.ops.toFixed(3)}</td>
-      <td>${s.iso.toFixed(3)}</td><td>${s.babip.toFixed(3)}</td>
+      <td style="color:#7c3aed;font-weight:600">${s.woba.toFixed(3)}</td>
+      <td style="color:#7c3aed;font-weight:700">${s.wrc_plus}</td>
+      <td>${s.iso.toFixed(3)}</td>
+      <td>${s.babip.toFixed(3)}</td>
       <td>${(s.bbp*100).toFixed(1)}%</td>
       <td>${(s.kp*100).toFixed(1)}%</td>
+      <td>${s.bbk>=99?'∞':s.bbk.toFixed(2)}</td>
+      <td style="font-weight:700;color:${s.war>=2?'#15803d':s.war>=0?'var(--navy)':'var(--red)'}">${s.war.toFixed(1)}</td>
     </tr>`).join('')}</tbody></table></div>`;
   }
   if(ps.length){
