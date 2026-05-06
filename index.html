@@ -174,7 +174,7 @@ tr:nth-child(even) td{background:var(--bg2)}
 <div id="modal-root"></div>
 
 <script>
-const ROSTER=[
+let ROSTER=[
   {no:1,name:"김민준",pos:"P",r:"p"},{no:2,name:"이서준",pos:"C",r:"b"},
   {no:3,name:"박도현",pos:"1B",r:"b"},{no:4,name:"최지호",pos:"2B",r:"b"},
   {no:5,name:"정우진",pos:"3B",r:"b"},{no:6,name:"강현서",pos:"SS",r:"b"},
@@ -197,6 +197,7 @@ let S={
   game:null,gcnt:1,games:[],
   blog:[],pit_bf:[],pit_runs:[],
   scriptUrl:"",lastSync:null,syncing:false,syncedIds:new Set(),
+  rosterSub:0,
 };
 
 function load(){
@@ -206,6 +207,7 @@ function load(){
       const d=JSON.parse(raw);
       ['blog','pit_bf','pit_runs','games','game','gcnt','scriptUrl','lastSync'].forEach(k=>{if(d[k]!==undefined)S[k]=d[k];});
       S.syncedIds=new Set(d.syncedIds||[]);
+      if(d.roster&&d.roster.length>0){ROSTER.splice(0,ROSTER.length,...d.roster);}
     }
   }catch(e){console.error('load error',e);}
 }
@@ -214,7 +216,7 @@ function save(){
     localStorage.setItem('baseball_app_v1',JSON.stringify({
       blog:S.blog,pit_bf:S.pit_bf,pit_runs:S.pit_runs,games:S.games,
       game:S.game,gcnt:S.gcnt,scriptUrl:S.scriptUrl,lastSync:S.lastSync,
-      syncedIds:[...S.syncedIds],
+      syncedIds:[...S.syncedIds],roster:ROSTER,
     }));
   }catch(e){console.error('save error',e);}
 }
@@ -351,7 +353,7 @@ function rSettings(){
   const lastStr=S.lastSync?new Date(S.lastSync).toLocaleString('ko',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'없음';
   return`<div class="cfgwrap">
     <div class="cfgcard">
-      <div class="cfgtitle">☁구글 시트 연동</div>
+      <div class="cfgtitle">☁ 구글 시트 연동</div>
       <div style="font-size:11px;color:var(--txt2);margin-bottom:8px;line-height:1.7">Apps Script 웹 앱 URL을 입력하세요.<br>Code.gs 배포 후 복사한 URL을 붙여넣기</div>
       <input class="cfginput" id="url-input" placeholder="https://script.google.com/macros/s/.../exec" value="${S.scriptUrl}" autocomplete="off" autocorrect="off" spellcheck="false">
       <div class="cfgrow">
@@ -361,30 +363,43 @@ function rSettings(){
       <div id="connst" class="connst"></div>
     </div>
     <div class="cfgcard">
-      <div class="cfgtitle">📤동기화 현황</div>
+      <div class="cfgtitle">📤 동기화 현황</div>
       <div class="srow"><span>타자 기록</span><span>${S.blog.length}타석</span></div>
       <div class="srow"><span>투수 타자 결과</span><span>${S.pit_bf.length}건</span></div>
       <div class="srow"><span>실점 기록</span><span>${S.pit_runs.length}건</span></div>
       <div class="srow"><span>동기화 대기</span><span style="color:${pc>0?'#b45309':'#15803d'}">${pc}건 ${pc>0?'⚠':'✓'}</span></div>
       <div class="srow"><span>마지막 동기화</span><span>${lastStr}</span></div>
       <button class="syncbig" id="syncbtn" onclick="doSync()" ${(!S.scriptUrl||S.syncing||pc===0)?'disabled':''}>
-        ☁
-        ${S.syncing?'동기화 중...':`구글 시트로 전송 (${pc}건)`}
+        ☁ ${S.syncing?'동기화 중...':`구글 시트로 전송 (${pc}건)`}
       </button>
+    </div>
+    <div class="cfgcard" style="margin-bottom:0">
+      <div class="cfgtitle">👥 선수 관리</div>
+      <div class="stabs" style="margin:0 0 10px">
+        <button class="stab bat${S.rosterSub===0?' on':''}" onclick="S.rosterSub=0;r()">타자 (${ROSTER.filter(p=>p.r==='b').length}명)</button>
+        <button class="stab pit${S.rosterSub===1?' on':''}" onclick="S.rosterSub=1;r()">투수 (${ROSTER.filter(p=>p.r==='p').length}명)</button>
+      </div>
+      ${rRosterList()}
+      <button onclick="showAddPlayerModal()" style="width:100%;padding:10px;margin-top:8px;border:1.5px dashed var(--bdr2);border-radius:var(--r);background:none;color:var(--navy);cursor:pointer;font-size:13px;font-weight:600;font-family:inherit">＋ 선수 추가</button>
     </div>
   </div>`;
 }
 
-// ── 게임 모달 ──────────────────────────────────────────────
+function saveUrl(){
+  S.scriptUrl=document.getElementById('url-input').value.trim();
+  save();toast('URL 저장 완료','ok');r();
+}
+
+// ── 경기 모달 ──────────────────────────────────────────────
 function showGameModal(){
   const today=new Date();
-  const dd=String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  const dd=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
   document.getElementById('modal-root').innerHTML=`
     <div class="modal-bg" onclick="if(event.target===this)closeModal()">
       <div class="modal">
-        <h3>경기 설정</h3>
+        <h3>${S.game?'경기 변경':'경기 시작'}</h3>
         <div class="mlbl">경기 날짜</div>
-        <input id="m-date" type="text" placeholder="예: 05-10" value="${dd}" maxlength="5">
+        <input id="m-date" type="date" value="${dd}">
         <div class="mlbl">상대팀</div>
         <input id="m-opp" type="text" placeholder="상대팀 이름" maxlength="20">
         <div class="mbtns">
@@ -404,7 +419,11 @@ function confirmGame(){
   S.curPit=null;save();closeModal();r();toast(`vs ${o} 경기 시작!`);
 }
 
+
 // ── 이벤트 핸들러 ─────────────────────────────────────────
+function newGame(){
+  showGameModal();
+}
 function selBat(no){S.bp=no;S.bs=1;r();}
 function selOC(id){S.bo=id;S.brbi=S.bsb=S.bcs=0;S.bs=2;r();}
 function selPit(no){S.curPit=no;S.pitSub=0;r();}
@@ -431,7 +450,8 @@ function addBatRun(pno){
   else entries[entries.length-1].run+=1;
   save();const p=ROSTER.find(x=>x.no===pno);toast(`${p.name} 득점!`,'ok');
   const row=document.getElementById(`rr-${pno}`);
-  if(row){row.classList.remove('flash');void row.offsetWidth;row.classList.add('flash');const c=row.querySelectorAll('div div')[1];if(c)c.textContent=`이번 경기 ${getRunsThisGame(pno)}득점`;}
+  if(row){row.classList.remove('flash');void row.offsetWidth;row.classList.add('flash');
+    const c=row.querySelectorAll('div div')[1];if(c)c.textContent=`이번 경기 ${getRunsThisGame(pno)}득점`;}
 }
 function addPitRun(earned){
   if(!S.game){toast('경기를 먼저 시작해주세요','err');return;}
@@ -445,43 +465,114 @@ function del(type,id){
   else S.pit_bf=S.pit_bf.filter(e=>e.id!==id);
   save();renderCt();
 }
-function saveUrl(){
-  S.scriptUrl=document.getElementById('url-input').value.trim();
-  save();toast('URL 저장 완료','ok');r();
-}
+
+
 async function testConn(){
   const url=document.getElementById('url-input').value.trim();
   if(!url){toast('URL을 먼저 입력하세요','err');return;}
   const st=document.getElementById('connst');
   st.style.display='block';st.textContent='연결 확인 중...';st.style.color='#6b7280';
-
-  // Apps Script는 GET도 CORS 리다이렉트 문제가 있을 수 있으므로
-  // 실제 데이터 전송과 동일한 방식(text/plain POST)으로 테스트
+  // GET은 Apps Script CORS 정상 지원 (리다이렉트 포함)
   try{
-    const res=await fetch(url,{
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=UTF-8'},
-      body:JSON.stringify({type:'ping'})
-    });
-    // Apps Script는 ping 타입을 모르지만 응답 자체가 오면 연결 성공
-    if(res.ok){
-      st.textContent='✓ 연결 성공! 동기화 가능합니다.';
-      st.style.color='#15803d';
-    }else{
-      st.textContent=`⚠ 응답 오류 (${res.status}) - 배포 설정 확인`;
-      st.style.color='#b45309';
-    }
+    const res=await fetch(url,{method:'GET'});
+    if(res.ok){st.textContent='✓ 연결 성공! 동기화 가능합니다.';st.style.color='#15803d';}
+    else{st.textContent=`⚠ 응답 오류 (${res.status}) — 배포 설정 확인`;st.style.color='#b45309';}
   }catch(e){
-    // CORS 오류인지 네트워크 오류인지 구분
-    if(e instanceof TypeError){
-      st.innerHTML='⚠ 브라우저 CORS 정책으로 테스트 차단됨<br><span style="color:#15803d">→ URL이 맞다면 동기화 버튼을 바로 눌러보세요</span>';
-      st.style.color='#b45309';
-    }else{
-      st.textContent='✗ 연결 실패 - URL을 확인하세요';
-      st.style.color='#991b1b';
-    }
+    st.textContent='✗ 연결 실패 — URL 또는 배포 설정 확인';st.style.color='#991b1b';
   }
 }
+
+// ── 선수 관리 ─────────────────────────────────────────────
+function rRosterList(){
+  const type=S.rosterSub===0?'b':'p';
+  const players=ROSTER.filter(p=>p.r===type);
+  if(!players.length)return`<div style="padding:16px 0;text-align:center;font-size:12px;color:var(--txt2)">선수가 없습니다. 아래 추가 버튼을 눌러주세요.</div>`;
+  return players.map(p=>`
+    <div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--bdr)">
+      <div style="width:28px;height:28px;border-radius:50%;background:${type==='b'?'var(--navy)':'var(--red)'};color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${p.no}</div>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;color:var(--txt)">${p.name}</div>
+        <div style="font-size:11px;color:var(--txt2)">${p.pos}</div>
+      </div>
+      <button onclick="showEditPlayerModal(${p.no},'${p.r}')" style="background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:5px 10px;font-size:12px;color:var(--txt2);cursor:pointer;font-family:inherit">✏ 편집</button>
+    </div>`).join('');
+}
+
+function showEditPlayerModal(no,role){
+  const p=ROSTER.find(x=>x.no===no&&x.r===role);
+  if(!p)return;
+  document.getElementById('modal-root').innerHTML=`
+    <div class="modal-bg" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <h3>선수 편집</h3>
+        <div class="mlbl">등번호</div>
+        <input id="ep-no" type="number" min="0" max="99" value="${p.no}">
+        <div class="mlbl">이름</div>
+        <input id="ep-name" type="text" value="${p.name}" maxlength="10">
+        <div class="mlbl">포지션</div>
+        <input id="ep-pos" type="text" value="${p.pos}" maxlength="5" placeholder="${role==='b'?'1B, SS, LF 등':'P'}">
+        <div class="mbtns">
+          <button class="mcancel" onclick="deletePlayer(${no},'${role}')" style="background:#FDEDEC;color:var(--red);border-color:#F5B7B1;flex:1">삭제</button>
+          <button class="mok" onclick="confirmEditPlayer(${no},'${role}')" style="flex:2">저장</button>
+        </div>
+      </div>
+    </div>`;
+  setTimeout(()=>document.getElementById('ep-name').focus(),100);
+}
+
+function confirmEditPlayer(no,role){
+  const newNo=parseInt(document.getElementById('ep-no').value);
+  const newName=document.getElementById('ep-name').value.trim();
+  const newPos=document.getElementById('ep-pos').value.trim();
+  if(!newName||!newPos){toast('이름과 포지션을 입력해주세요','err');return;}
+  const idx=ROSTER.findIndex(x=>x.no===no&&x.r===role);
+  if(idx>=0)ROSTER[idx]={...ROSTER[idx],no:isNaN(newNo)?no:newNo,name:newName,pos:newPos};
+  save();closeModal();r();toast(`${newName} 저장 완료`,'ok');
+}
+
+function deletePlayer(no,role){
+  if(!confirm('이 선수를 삭제하시겠습니까?'))return;
+  const idx=ROSTER.findIndex(x=>x.no===no&&x.r===role);
+  if(idx>=0)ROSTER.splice(idx,1);
+  save();closeModal();r();toast('삭제 완료');
+}
+
+function showAddPlayerModal(){
+  const type=S.rosterSub===0?'b':'p';
+  const label=type==='b'?'타자':'투수';
+  // 다음 번호 자동 추천
+  const nos=ROSTER.map(p=>p.no).filter(n=>!isNaN(n));
+  const nextNo=nos.length>0?Math.max(...nos)+1:1;
+  document.getElementById('modal-root').innerHTML=`
+    <div class="modal-bg" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <h3>${label} 추가</h3>
+        <div class="mlbl">등번호</div>
+        <input id="ap-no" type="number" min="0" max="99" value="${nextNo}">
+        <div class="mlbl">이름</div>
+        <input id="ap-name" type="text" placeholder="선수 이름" maxlength="10">
+        <div class="mlbl">포지션</div>
+        <input id="ap-pos" type="text" placeholder="${type==='b'?'1B, 2B, SS, LF, CF, RF, C, DH':'P'}" maxlength="5">
+        <div class="mbtns">
+          <button class="mcancel" onclick="closeModal()">취소</button>
+          <button class="mok" onclick="confirmAddPlayer('${type}')">추가</button>
+        </div>
+      </div>
+    </div>`;
+  setTimeout(()=>document.getElementById('ap-name').focus(),100);
+}
+
+function confirmAddPlayer(type){
+  const no=parseInt(document.getElementById('ap-no').value)||0;
+  const name=document.getElementById('ap-name').value.trim();
+  const pos=document.getElementById('ap-pos').value.trim();
+  if(!name||!pos){toast('이름과 포지션을 입력해주세요','err');return;}
+  if(ROSTER.find(x=>x.no===no&&x.r===type)){toast('같은 번호의 선수가 있습니다','err');return;}
+  ROSTER.push({no,name,pos,r:type});
+  ROSTER.sort((a,b)=>a.no-b.no);
+  save();closeModal();r();toast(`${name} 추가 완료`,'ok');
+}
+
 async function doSync(){
   if(!S.scriptUrl||S.syncing)return;
   const bP=S.blog.filter(e=>!S.syncedIds.has(e.id));
@@ -491,19 +582,17 @@ async function doSync(){
   if(!bP.length&&!pfP.length&&!prP.length){toast('동기화할 데이터 없음');return;}
   S.syncing=true;r();
   try{
-    const res=await fetch(S.scriptUrl,{
+    // no-cors: CORS 검사 없이 전송. 응답 본문 읽기 불가하지만 데이터는 Apps Script에 수신됨
+    await fetch(S.scriptUrl,{
       method:'POST',
-      // text/plain 으로 보내야 CORS preflight(OPTIONS) 없이 전송됨
-      // application/json 사용 시 Apps Script가 OPTIONS 요청을 처리 못해 차단됨
-      headers:{'Content-Type':'text/plain;charset=UTF-8'},
+      mode:'no-cors',
       body:JSON.stringify({type:'sync',games:gP,bat_log:bP,pit_bf:pfP,pit_runs:prP})
     });
-    const result=await res.json();
-    if(result.status==='ok'){
-      bP.forEach(e=>S.syncedIds.add(e.id));pfP.forEach(e=>S.syncedIds.add(e.id));prP.forEach(e=>S.syncedIds.add(e.id));gP.forEach(g=>S.syncedIds.add('g_'+g.id));
-      S.lastSync=Date.now();save();
-      toast(`동기화 완료 · ${result.batAdded+result.pitBfAdded}건 전송`,'ok');
-    }else toast(`오류: ${result.message}`,'err');
+    // no-cors는 응답을 읽을 수 없으므로 에러 없으면 성공으로 처리
+    bP.forEach(e=>S.syncedIds.add(e.id));pfP.forEach(e=>S.syncedIds.add(e.id));prP.forEach(e=>S.syncedIds.add(e.id));gP.forEach(g=>S.syncedIds.add('g_'+g.id));
+    S.lastSync=Date.now();save();
+    const total=bP.length+pfP.length+prP.length;
+    toast(`☁ 동기화 완료 (${total}건 전송)`,'ok');
   }catch(e){toast('네트워크 오류 - 인터넷 확인','err');}
   S.syncing=false;r();
 }
