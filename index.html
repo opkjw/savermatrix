@@ -196,7 +196,7 @@ let S={
   curPit:null,pitSub:0,
   game:null,gcnt:1,games:[],
   blog:[],pit_bf:[],pit_runs:[],
-  scriptUrl:"",lastSync:null,syncing:false,syncedIds:new Set(),
+  scriptUrl:"",lastSync:null,syncing:false,loading:false,syncedIds:new Set(),
   rosterSub:0,
 };
 
@@ -249,9 +249,28 @@ function pitAgg(){
 function paS(o){const noAB=["BB","IBB","HBP","SF","SH"],hits=["1B","2B","3B","HR"];return{pa:1,ab:noAB.includes(o)?0:1,h:hits.includes(o)?1:0,d2:o==="2B"?1:0,d3:o==="3B"?1:0,hr:o==="HR"?1:0,bb:(o==="BB"||o==="IBB")?1:0,hbp:o==="HBP"?1:0,so:o==="K"?1:0,sf:o==="SF"?1:0};}
 function batAgg(){
   const m={};
-  for(const e of S.blog){const k=e.pn;if(!m[k])m[k]={name:k,no:e.pno,pa:0,ab:0,h:0,d2:0,d3:0,hr:0,bb:0,hbp:0,so:0,sf:0,rbi:0,run:0,sb:0,cs:0};const t=m[k],s=paS(e.oc);for(const f of['pa','ab','h','d2','d3','hr','bb','hbp','so','sf'])t[f]+=s[f];t.rbi+=e.rbi;t.run+=e.run;t.sb+=e.sb;t.cs+=e.cs;}
-  return Object.values(m).map(t=>{const avg=t.ab>0?t.h/t.ab:0;const od=t.ab+t.bb+t.hbp+t.sf;const obp=od>0?(t.h+t.bb+t.hbp)/od:0;const slg=t.ab>0?(t.h+t.d2+2*t.d3+3*t.hr)/t.ab:0;return{...t,avg,obp,slg,ops:obp+slg,bbp:t.pa>0?t.bb/t.pa:0,kp:t.pa>0?t.so/t.pa:0};}).sort((a,b)=>b.ops-a.ops);
+  for(const e of S.blog){
+    const k=e.pn;
+    if(!m[k])m[k]={name:k,no:e.pno,pa:0,ab:0,h:0,d2:0,d3:0,hr:0,bb:0,hbp:0,so:0,sf:0,rbi:0,run:0,sb:0,cs:0,gids:new Set()};
+    const t=m[k],s=paS(e.oc);
+    for(const f of['pa','ab','h','d2','d3','hr','bb','hbp','so','sf'])t[f]+=s[f];
+    t.rbi+=e.rbi;t.run+=e.run;t.sb+=e.sb;t.cs+=e.cs;
+    if(e.gid)t.gids.add(e.gid);
+  }
+  return Object.values(m).map(t=>{
+    const avg=t.ab>0?t.h/t.ab:0;
+    const od=t.ab+t.bb+t.hbp+t.sf;
+    const obp=od>0?(t.h+t.bb+t.hbp)/od:0;
+    const slg=t.ab>0?(t.h+t.d2+2*t.d3+3*t.hr)/t.ab:0;
+    const iso=t.ab>0?(t.d2+2*t.d3+3*t.hr)/t.ab:0;
+    const bd=t.ab-t.so-t.hr+t.sf;
+    const babip=bd>0?(t.h-t.hr)/bd:0;
+    return{...t,avg,obp,slg,ops:obp+slg,iso,babip,
+      bbp:t.pa>0?t.bb/t.pa:0,kp:t.pa>0?t.so/t.pa:0,
+      g:t.gids.size};
+  }).sort((a,b)=>b.ops-a.ops);
 }
+
 function getBattersThisGame(){if(!S.game)return ROSTER.filter(p=>p.r==='b');const app=new Set(S.blog.filter(e=>e.gid===S.game.id).map(e=>e.pno));const all=ROSTER.filter(p=>p.r==='b');return[...all.filter(p=>app.has(p.no)),...all.filter(p=>!app.has(p.no))];}
 function getRunsThisGame(pno){if(!S.game)return 0;return S.blog.filter(e=>e.gid===S.game.id&&e.pno===pno).reduce((s,e)=>s+e.run,0);}
 function pendingCount(){return S.blog.filter(e=>!S.syncedIds.has(e.id)).length+S.pit_bf.filter(e=>!S.syncedIds.has(e.id)).length+S.pit_runs.filter(e=>!S.syncedIds.has(e.id)).length;}
@@ -340,57 +359,78 @@ function rLog(){
 }
 function rStats(){
   const bs=batAgg(),ps=pitAgg();
-  let h=`<div class="seclbl">타자 지표 (시즌)</div>`;
-  if(!bs.length)h+=`<div class="empty">📊타자 데이터가 없습니다.</div>`;
-  else h+=`<div class="statwrap"><table><thead><tr><th style="text-align:left">선수</th><th>PA</th><th>AVG</th><th>OBP</th><th>OPS</th><th>K%</th></tr></thead><tbody>${bs.map(s=>`<tr><td style="text-align:left;font-weight:600">${s.name}</td><td>${s.pa}</td><td>${s.avg.toFixed(3)}</td><td>${s.obp.toFixed(3)}</td><td class="hi">${s.ops.toFixed(3)}</td><td>${(s.kp*100).toFixed(1)}%</td></tr>`).join('')}</tbody></table></div>`;
-  h+=`<div class="seclbl">투수 지표 (시즌)</div>`;
-  if(!ps.length)h+=`<div class="empty">📊투수 데이터가 없습니다.</div>`;
-  else h+=`<div class="statwrap"><table class="pit"><thead><tr><th style="text-align:left">선수</th><th>IP</th><th>ERA</th><th>WHIP</th><th>K</th><th>BB</th></tr></thead><tbody>${ps.map(s=>`<tr><td style="text-align:left;font-weight:600">${s.name}</td><td>${s.ipd}</td><td class="hir">${s.era.toFixed(2)}</td><td>${s.whip.toFixed(2)}</td><td>${s.k}</td><td>${s.bb}</td></tr>`).join('')}</tbody></table></div>`;
+  if(!bs.length&&!ps.length)
+    return`<div class="empty">📊<br><br>아직 기록이 없습니다.</div>`;
+  let h='';
+  if(bs.length){
+    h+=`<div class="seclbl">🏏 타자 기본 기록</div>
+    <div class="statwrap"><table><thead><tr>
+      <th style="text-align:left;min-width:58px">선수</th>
+      <th>PA</th><th>AB</th><th>H</th>
+      <th>2B</th><th>3B</th><th>HR</th>
+      <th>RBI</th><th>R</th><th>BB</th><th>K</th><th>SB</th>
+    </tr></thead><tbody>${bs.map(s=>`<tr>
+      <td style="text-align:left;font-weight:600">${s.name}</td>
+      <td>${s.pa}</td><td>${s.ab}</td><td>${s.h}</td>
+      <td>${s.d2}</td><td>${s.d3}</td>
+      <td style="color:var(--red);font-weight:600">${s.hr}</td>
+      <td>${s.rbi}</td><td>${s.run}</td>
+      <td>${s.bb}</td><td>${s.so}</td><td>${s.sb}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+
+    h+=`<div class="seclbl">📊 타자 세이버매트릭스</div>
+    <div class="statwrap"><table><thead><tr>
+      <th style="text-align:left;min-width:58px">선수</th>
+      <th title="타율">AVG</th><th title="출루율">OBP</th>
+      <th title="장타율">SLG</th><th title="출루+장타">OPS</th>
+      <th title="순수장타율">ISO</th><th title="인플레이타율">BABIP</th>
+      <th title="볼넷비율">BB%</th><th title="삼진비율">K%</th>
+    </tr></thead><tbody>${bs.map(s=>`<tr>
+      <td style="text-align:left;font-weight:600">${s.name}</td>
+      <td>${s.avg.toFixed(3)}</td><td>${s.obp.toFixed(3)}</td>
+      <td>${s.slg.toFixed(3)}</td>
+      <td class="hi" style="font-weight:700">${s.ops.toFixed(3)}</td>
+      <td>${s.iso.toFixed(3)}</td><td>${s.babip.toFixed(3)}</td>
+      <td>${(s.bbp*100).toFixed(1)}%</td>
+      <td>${(s.kp*100).toFixed(1)}%</td>
+    </tr>`).join('')}</tbody></table></div>`;
+  }
+  if(ps.length){
+    h+=`<div class="seclbl">⚾ 투수 기본 기록</div>
+    <div class="statwrap"><table class="pit"><thead><tr>
+      <th style="text-align:left;min-width:58px">선수</th>
+      <th>G</th><th>IP</th><th>H</th>
+      <th>BB</th><th>K</th><th>HR</th><th>ER</th><th>R</th>
+    </tr></thead><tbody>${ps.map(s=>`<tr>
+      <td style="text-align:left;font-weight:600">${s.name}</td>
+      <td>${s.g}</td><td>${s.ipd}</td><td>${s.h}</td>
+      <td>${s.bb}</td>
+      <td style="color:var(--navy);font-weight:600">${s.k}</td>
+      <td style="color:var(--red)">${s.hr}</td>
+      <td style="color:var(--red);font-weight:600">${s.er}</td>
+      <td>${s.r}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+
+    h+=`<div class="seclbl">📈 투수 세이버매트릭스</div>
+    <div class="statwrap"><table class="pit"><thead><tr>
+      <th style="text-align:left;min-width:58px">선수</th>
+      <th title="평균자책점">ERA</th><th title="이닝당출루">WHIP</th>
+      <th title="수비무관ERA">FIP</th>
+      <th title="9이닝탈삼진">K/9</th><th title="9이닝볼넷">BB/9</th>
+      <th title="삼진비율">K%</th><th title="볼넷비율">BB%</th>
+    </tr></thead><tbody>${ps.map(s=>`<tr>
+      <td style="text-align:left;font-weight:600">${s.name}</td>
+      <td class="hir" style="font-weight:700">${s.era.toFixed(2)}</td>
+      <td>${s.whip.toFixed(2)}</td><td>${s.fip.toFixed(2)}</td>
+      <td style="color:var(--navy);font-weight:600">${s.k9.toFixed(1)}</td>
+      <td>${s.bb9.toFixed(1)}</td>
+      <td>${s.bf>0?(s.k/s.bf*100).toFixed(1)+'%':'-'}</td>
+      <td>${s.bf>0?(s.bb/s.bf*100).toFixed(1)+'%':'-'}</td>
+    </tr>`).join('')}</tbody></table></div>`;
+  }
   return h;
 }
-function rSettings(){
-  const pc=pendingCount();
-  const lastStr=S.lastSync?new Date(S.lastSync).toLocaleString('ko',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'없음';
-  return`<div class="cfgwrap">
-    <div class="cfgcard">
-      <div class="cfgtitle">☁ 구글 시트 연동</div>
-      <div style="font-size:11px;color:var(--txt2);margin-bottom:8px;line-height:1.7">Apps Script 웹 앱 URL을 입력하세요.<br>Code.gs 배포 후 복사한 URL을 붙여넣기</div>
-      <input class="cfginput" id="url-input" placeholder="https://script.google.com/macros/s/.../exec" value="${S.scriptUrl}" autocomplete="off" autocorrect="off" spellcheck="false">
-      <div class="cfgrow">
-        <button class="cfgbtn" onclick="testConn()">🔌 연결 테스트</button>
-        <button class="cfgbtn pr" onclick="saveUrl()">✓ URL 저장</button>
-      </div>
-      <div id="connst" class="connst"></div>
-    </div>
-    <div class="cfgcard">
-      <div class="cfgtitle">📤 동기화 현황</div>
-      <div class="srow"><span>타자 기록</span><span>${S.blog.length}타석</span></div>
-      <div class="srow"><span>투수 타자 결과</span><span>${S.pit_bf.length}건</span></div>
-      <div class="srow"><span>실점 기록</span><span>${S.pit_runs.length}건</span></div>
-      <div class="srow"><span>동기화 대기</span><span style="color:${pc>0?'#b45309':'#15803d'}">${pc}건 ${pc>0?'⚠':'✓'}</span></div>
-      <div class="srow"><span>마지막 동기화</span><span>${lastStr}</span></div>
-      <button class="syncbig" id="syncbtn" onclick="doSync()" ${(!S.scriptUrl||S.syncing||pc===0)?'disabled':''}>
-        ☁ ${S.syncing?'동기화 중...':`구글 시트로 전송 (${pc}건)`}
-      </button>
-    </div>
-    <div class="cfgcard" style="margin-bottom:0">
-      <div class="cfgtitle">👥 선수 관리</div>
-      <div class="stabs" style="margin:0 0 10px">
-        <button class="stab bat${S.rosterSub===0?' on':''}" onclick="S.rosterSub=0;r()">타자 (${ROSTER.filter(p=>p.r==='b').length}명)</button>
-        <button class="stab pit${S.rosterSub===1?' on':''}" onclick="S.rosterSub=1;r()">투수 (${ROSTER.filter(p=>p.r==='p').length}명)</button>
-      </div>
-      ${rRosterList()}
-      <button onclick="showAddPlayerModal()" style="width:100%;padding:10px;margin-top:8px;border:1.5px dashed var(--bdr2);border-radius:var(--r);background:none;color:var(--navy);cursor:pointer;font-size:13px;font-weight:600;font-family:inherit">＋ 선수 추가</button>
-    </div>
-  </div>`;
-}
 
-function saveUrl(){
-  S.scriptUrl=document.getElementById('url-input').value.trim();
-  save();toast('URL 저장 완료','ok');r();
-}
-
-// ── 경기 모달 ──────────────────────────────────────────────
 function showGameModal(){
   const today=new Date();
   const dd=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
@@ -572,6 +612,97 @@ function confirmAddPlayer(type){
   ROSTER.sort((a,b)=>a.no-b.no);
   save();closeModal();r();toast(`${name} 추가 완료`,'ok');
 }
+
+function rSettings(){
+  const pc=pendingCount();
+  const lastStr=S.lastSync?new Date(S.lastSync).toLocaleString('ko',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'없음';
+  return`<div class="cfgwrap">
+    <div class="cfgcard">
+      <div class="cfgtitle">☁ 구글 시트 연동</div>
+      <div style="font-size:11px;color:var(--txt2);margin-bottom:8px;line-height:1.7">Apps Script 웹 앱 URL을 입력하세요.<br>Code.gs 배포 후 복사한 URL을 붙여넣기</div>
+      <input class="cfginput" id="url-input" placeholder="https://script.google.com/macros/s/.../exec" value="${S.scriptUrl}" autocomplete="off" autocorrect="off" spellcheck="false">
+      <div class="cfgrow">
+        <button class="cfgbtn" onclick="testConn()">🔌 연결 테스트</button>
+        <button class="cfgbtn pr" onclick="saveUrl()">✓ URL 저장</button>
+      </div>
+      <div id="connst" class="connst"></div>
+    </div>
+    <div class="cfgcard">
+      <div class="cfgtitle">📤 동기화 현황</div>
+      <div class="srow"><span>타자 기록</span><span>${S.blog.length}타석</span></div>
+      <div class="srow"><span>투수 타자 결과</span><span>${S.pit_bf.length}건</span></div>
+      <div class="srow"><span>실점 기록</span><span>${S.pit_runs.length}건</span></div>
+      <div class="srow"><span>동기화 대기</span><span style="color:${pc>0?'#b45309':'#15803d'}">${pc}건 ${pc>0?'⚠':'✓'}</span></div>
+      <div class="srow"><span>마지막 동기화</span><span>${lastStr}</span></div>
+      <button class="syncbig" onclick="doSync()" ${(!S.scriptUrl||S.syncing||pc===0)?'disabled':''}>
+        ☁ ${S.syncing?'동기화 중...':`구글 시트로 전송 (${pc}건)`}
+      </button>
+      <button onclick="loadFromSheets()" ${(!S.scriptUrl||S.loading)?'disabled':''}
+        style="width:100%;margin-top:8px;padding:13px;background:var(--bg2);color:var(--navy);border:1.5px solid var(--navy);border-radius:var(--r);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">
+        ☁ ${S.loading?'불러오는 중...':'구글 시트에서 불러오기'}
+      </button>
+      <div style="margin-top:7px;font-size:11px;color:var(--txt2);line-height:1.6;background:var(--bg2);padding:8px 10px;border-radius:var(--r)">
+        💡 <strong>새 기기에서 처음 접속할 때</strong> 사용하세요.<br>구글 시트의 모든 데이터를 이 앱으로 가져옵니다.
+      </div>
+    </div>
+    <div class="cfgcard" style="margin-bottom:0">
+      <div class="cfgtitle">👥 선수 관리</div>
+      <div class="stabs" style="margin:0 0 10px">
+        <button class="stab bat${S.rosterSub===0?' on':''}" onclick="S.rosterSub=0;r()">타자 (${ROSTER.filter(p=>p.r==='b').length}명)</button>
+        <button class="stab pit${S.rosterSub===1?' on':''}" onclick="S.rosterSub=1;r()">투수 (${ROSTER.filter(p=>p.r==='p').length}명)</button>
+      </div>
+      ${rRosterList()}
+      <button onclick="showAddPlayerModal()" style="width:100%;padding:10px;margin-top:8px;border:1.5px dashed var(--bdr2);border-radius:var(--r);background:none;color:var(--navy);cursor:pointer;font-size:13px;font-weight:600;font-family:inherit">＋ 선수 추가</button>
+    </div>
+  </div>`;
+}
+
+function saveUrl(){
+  S.scriptUrl=document.getElementById('url-input').value.trim();
+  save();toast('URL 저장 완료','ok');r();
+}
+
+async function loadFromSheets(){
+  if(!S.scriptUrl){toast('먼저 URL을 저장해주세요','err');return;}
+  S.loading=true;r();
+  try{
+    const res=await fetch(S.scriptUrl+'?action=fetch');
+    const data=await res.json();
+    if(data.status!=='ok')throw new Error(data.message||'오류');
+
+    let added=0;
+    const exIds=new Set([
+      ...S.blog.map(e=>e.id),
+      ...S.pit_bf.map(e=>e.id),
+      ...S.pit_runs.map(e=>e.id),
+    ]);
+
+    for(const e of (data.bat_log||[])){
+      if(!exIds.has(e.id)){S.blog.push(e);exIds.add(e.id);added++;}
+    }
+    for(const e of (data.pit_bf||[])){
+      if(!exIds.has(e.id)){S.pit_bf.push(e);exIds.add(e.id);added++;}
+    }
+    for(const e of (data.pit_runs||[])){
+      if(!exIds.has(e.id)){S.pit_runs.push(e);exIds.add(e.id);added++;}
+    }
+    for(const g of (data.games||[])){
+      if(!S.games.find(x=>x.id===g.id))S.games.push(g);
+    }
+    // 불러온 데이터는 이미 시트에 있으므로 synced 처리
+    S.blog.forEach(e=>S.syncedIds.add(e.id));
+    S.pit_bf.forEach(e=>S.syncedIds.add(e.id));
+    S.pit_runs.forEach(e=>S.syncedIds.add(e.id));
+    S.games.forEach(g=>S.syncedIds.add('g_'+g.id));
+    save();
+    toast(added>0?`✓ ${added}건 불러오기 완료`:'이미 최신 데이터입니다','ok');
+  }catch(e){
+    toast('불러오기 실패 — URL 또는 배포 설정 확인','err');
+    console.error(e);
+  }
+  S.loading=false;r();
+}
+
 
 async function doSync(){
   if(!S.scriptUrl||S.syncing)return;
