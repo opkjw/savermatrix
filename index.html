@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="야구기록">
 <meta name="theme-color" content="#1B3A6B">
-<title>⚾ 야구 세이버매트릭스</title>
+<title>⚾ BallMatrix</title>
 <style>
 :root{--navy:#1B3A6B;--red:#922B21;--bg:#f9fafb;--card:#ffffff;--bg2:#f3f4f6;--txt:#111827;--txt2:#6b7280;--bdr:#e5e7eb;--bdr2:#d1d5db;--r:8px;--rl:12px;--sfb:env(safe-area-inset-bottom,0px);}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -772,7 +772,7 @@ function rSprayChart(playerName){
       var mid=(s.startDeg+s.endDeg)/2;
       var lp={x:cx+(r*0.62)*Math.sin(mid*Math.PI/180),y:cy-(r*0.62)*Math.cos(mid*Math.PI/180)};
       // % 텍스트 - 폰트 크기 조정
-      h+='<text x="'+f(lp.x)+'" y="'+f(lp.y)+'" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="20" font-weight="900" opacity=".95">'+pct+'%</text>';
+      h+='<text x="'+f(lp.x)+'" y="'+f(lp.y)+'" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="13" font-weight="900" opacity=".95">'+pct+'%</text>';
       // 타구수
       if(s.count>0){
         h+='<text x="'+f(lp.x)+'" y="'+f(lp.y+15)+'" text-anchor="middle" dominant-baseline="middle" fill="rgba(255,255,255,.6)" font-size="10">'+s.count+'타구</text>';
