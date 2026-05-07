@@ -148,6 +148,26 @@ tr:nth-child(even) td{background:var(--bg2)}
 .syncbig:active{background:#152f58}
 .syncbig:disabled{opacity:.38;cursor:not-allowed}
 /* toast */
+.edit-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50;display:flex;align-items:flex-end}
+.edit-modal{background:var(--card);border-radius:var(--rl) var(--rl) 0 0;padding:16px;padding-bottom:calc(16px + var(--safe-bottom));width:100%;max-width:430px;margin:0 auto;max-height:85vh;overflow-y:auto}
+.edit-modal h3{font-size:16px;font-weight:700;color:var(--txt);margin-bottom:4px}
+.edit-modal .sub{font-size:12px;color:var(--txt2);margin-bottom:14px}
+.em-lbl{font-size:11px;font-weight:600;color:var(--txt2);margin:10px 0 6px}
+.em-ocgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:4px}
+.em-ocbtn{border:none;border-radius:var(--r);cursor:pointer;font-size:11px;font-weight:500;padding:9px 3px;min-height:44px;line-height:1.2;width:100%;font-family:inherit}
+.em-ocbtn:active{filter:brightness(.88)}
+.em-row{display:grid;gap:8px;margin-bottom:10px}
+.em-card{background:var(--bg2);border-radius:var(--r);padding:9px 8px;text-align:center}
+.em-card-lbl{font-size:10px;color:var(--txt2);margin-bottom:5px}
+.em-card-val{font-size:20px;font-weight:600;color:var(--txt);line-height:1;margin-bottom:5px}
+.em-card-btns{display:flex;justify-content:center;gap:8px}
+.em-card-btn{width:26px;height:26px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--card);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;font-family:inherit}
+.em-btns{display:flex;gap:8px;margin-top:14px}
+.em-cancel{flex:1;padding:12px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--bg2);color:var(--txt2);cursor:pointer;font-size:14px;font-family:inherit}
+.em-save{flex:2;padding:12px;border:none;border-radius:var(--r);background:var(--navy);color:#fff;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit}
+.em-zone-of{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:4px}
+.em-zone-if{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.em-zbtn{padding:8px 2px;border-radius:var(--r);font-size:11px;cursor:pointer;font-family:inherit}
 #toast{position:fixed;bottom:calc(70px + var(--safe-bottom));left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 20px;border-radius:var(--r);font-size:13px;z-index:99;transition:opacity .3s;pointer-events:none;white-space:nowrap;font-weight:500}
 #toast.ok{background:#15803d}#toast.err{background:#991b1b}#toast.off{opacity:0}
 /* game setup modal */
@@ -197,7 +217,7 @@ let S={
   game:null,gcnt:1,games:[],
   blog:[],pit_bf:[],pit_runs:[],
   scriptUrl:"",lastSync:null,syncing:false,loading:false,rosterDirty:false,syncedIds:new Set(),
-  rosterSub:0, bzone:null, sprayPlayer:null,
+  rosterSub:0, bzone:null, sprayPlayer:null, editedIds:new Set(),
 };
 
 function load(){
@@ -207,6 +227,7 @@ function load(){
       const d=JSON.parse(raw);
       ['blog','pit_bf','pit_runs','games','game','gcnt','scriptUrl','lastSync'].forEach(k=>{if(d[k]!==undefined)S[k]=d[k];});
       S.syncedIds=new Set(d.syncedIds||[]);
+      S.editedIds=new Set(d.editedIds||[]);
       if(d.roster&&d.roster.length>0){ROSTER.splice(0,ROSTER.length,...d.roster);}
     }
   }catch(e){console.error('load error',e);}
@@ -216,7 +237,7 @@ function save(){
     localStorage.setItem('baseball_app_v1',JSON.stringify({
       blog:S.blog,pit_bf:S.pit_bf,pit_runs:S.pit_runs,games:S.games,
       game:S.game,gcnt:S.gcnt,scriptUrl:S.scriptUrl,lastSync:S.lastSync,
-      syncedIds:[...S.syncedIds],roster:ROSTER,
+      syncedIds:[...S.syncedIds],editedIds:[...S.editedIds],roster:ROSTER,
     }));
   }catch(e){console.error('save error',e);}
 }
@@ -405,115 +426,70 @@ function rPitRunInput(){
 }
 function rLog(){
   const gid=S.game?S.game.id:null;
-  const be=gid?S.blog.filter(e=>e.gid===gid):S.blog.slice(-20);
+  const be=gid?S.blog.filter(e=>e.gid===gid):S.blog.slice(-30);
   const pbf=gid?S.pit_bf.filter(e=>e.gid===gid):S.pit_bf.slice(-20);
-  if(!be.length&&!pbf.length)return`<div class="empty">📋이 경기 기록이 없습니다.</div>`;
+  const pr=gid?S.pit_runs.filter(e=>e.gid===gid):S.pit_runs.slice(-10);
+
+  if(!be.length&&!pbf.length)
+    return`<div class="empty">📋<br><br>이 경기 기록이 없습니다.</div>`;
+
   let h='';
-  if(be.length){h+=`<div class="seclbl">타자 기록 (${be.length}타석)</div>`;h+=be.slice().reverse().map(e=>{const oc=ocInfo(e.oc);const ex=[];if(e.rbi>0)ex.push(`${e.rbi}타점`);if(e.run>0)ex.push(`${e.run}득점`);if(e.sb>0)ex.push('도루');const sy=S.syncedIds.has(e.id);return`<div class="logitem"><div class="logbadge" style="background:${oc.bg};color:${oc.fg}">${oc.l}</div><div style="flex:1"><div class="logplayer">${e.pn}${sy?' <span style="font-size:10px;color:#15803d">✓</span>':''}</div><div class="logdetail">${ex.length?ex.join(' · '):'추가기록 없음'}</div></div><button class="delbtn" onclick="del('b','${e.id}')">✕</button></div>`;}).join('');}
-  if(pbf.length){const pnos=[...new Set(pbf.map(e=>e.pno))];h+=`<div class="seclbl">투수 기록 (${pbf.length}타자 상대)</div>`;pnos.forEach(pno=>{const p=ROSTER.find(x=>x.no===pno);const st=calcPitStats(pno,gid);h+=`<div class="logitem" style="background:var(--bg2)"><div class="logbadge" style="background:var(--red);color:#fff;font-size:11px">#${pno}</div><div><div class="logplayer">${p.name}</div><div class="logdetail">${st.ipd}이닝 · ${st.h}H · ${st.er}ER · ${st.bb}BB · ${st.k}K</div></div></div>`;});}
-  return h;
-}
-function rSprayChart(playerName){
-  const entries=S.blog.filter(e=>e.pn===playerName&&e.zone);
-  const all=S.blog.filter(e=>e.pn===playerName);
 
-  // 존 좌표 (SVG 320×215, 홈플레이트 = 160,205)
-  const ZP={
-    'LF': {x:42, y:80}, 'LC': {x:98, y:50}, 'CF': {x:160,y:33},
-    'RC': {x:222,y:50}, 'RF': {x:278,y:80},
-    '3B': {x:72, y:152},'SS': {x:118,y:118},'2B': {x:202,y:118},'1B': {x:248,y:152},
-  };
-
-  // 타구 통계
-  const pullZones=['3B','LF'],centerZones=['SS','2B','LC','CF','RC'],oppoZones=['1B','RF'];
-  const pull=entries.filter(e=>pullZones.includes(e.zone)).length;
-  const ctr =entries.filter(e=>centerZones.includes(e.zone)).length;
-  const oppo=entries.filter(e=>oppoZones.includes(e.zone)).length;
-
-  // 도트 생성 (결정적 오프셋)
-  const dots=entries.map((e,i)=>{
-    const pos=ZP[e.zone]; if(!pos) return '';
-    const isHit=['1B','2B','3B','HR'].includes(e.oc);
-    const isHR=e.oc==='HR';
-    const is2B=e.oc==='2B', is3B=e.oc==='3B';
-    const fill=isHR?'#ef4444':is3B?'#8b5cf6':is2B?'#3b82f6':isHit?'#22c55e':'#9ca3af';
-    const r=isHR?7:5;
-    const ox=((i*37+7)%15)-7, oy=((i*53+11)%15)-7;
-    const label=isHR?'HR':is3B?'3B':is2B?'2B':isHit?'H':'';
-    return`<g>
-      <circle cx="${pos.x+ox}" cy="${pos.y+oy}" r="${r}" fill="${fill}" opacity="0.85" stroke="white" stroke-width="1.5"/>
-      ${label?`<text x="${pos.x+ox}" y="${pos.y+oy+3}" text-anchor="middle" fill="white" font-size="5" font-weight="bold">${label}</text>`:''}
-    </g>`;
-  }).join('');
-
-  const noData=!entries.length;
-
-  return`<div style="padding:0 12px 4px">
-    <div style="background:var(--bg2);border-radius:var(--rl);overflow:hidden;padding:12px 0 8px">
-      <div style="text-align:center;font-size:12px;font-weight:600;color:var(--txt2);margin-bottom:8px">
-        ${playerName}의 스프레이 차트 (${entries.length}/${all.length}타석)
-      </div>
-      ${noData
-        ?`<div style="padding:24px;text-align:center;font-size:12px;color:var(--txt2)">타구 방향 데이터가 없습니다.<br><span style="font-size:11px;opacity:.7">타석 입력 시 방향을 선택하면 표시됩니다.</span></div>`
-        :`<svg viewBox="0 0 320 215" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:320px;display:block;margin:0 auto">
-          <!-- 외야 잔디 -->
-          <path d="M 160 205 L 12 90 A 165 165 0 0 1 308 90 Z" fill="#3d7a35"/>
-          <!-- 내야 흙 -->
-          <path d="M 160 205 L 80 148 L 160 85 L 240 148 Z" fill="#c8a060"/>
-          <!-- 마운드 -->
-          <ellipse cx="160" cy="145" rx="14" ry="10" fill="#b89058"/>
-          <!-- 파울라인 -->
-          <line x1="160" y1="205" x2="12" y2="90" stroke="white" stroke-width="1.5" opacity="0.7"/>
-          <line x1="160" y1="205" x2="308" y2="90" stroke="white" stroke-width="1.5" opacity="0.7"/>
-          <!-- 외야 펜스 -->
-          <path d="M 12 90 A 165 165 0 0 1 308 90" fill="none" stroke="white" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.6"/>
-          <!-- 내야 라인 -->
-          <polyline points="160,205 80,148 160,85 240,148 160,205" fill="none" stroke="white" stroke-width="1" opacity="0.5"/>
-          <!-- 베이스 -->
-          <polygon points="160,200 166,205 160,210 154,205" fill="white"/>
-          <polygon points="80,143 86,148 80,153 74,148" fill="white"/>
-          <polygon points="160,80 166,85 160,90 154,85" fill="white"/>
-          <polygon points="240,143 246,148 240,153 234,148" fill="white"/>
-          <!-- 존 레이블 -->
-          <text x="28"  y="82"  text-anchor="middle" fill="rgba(255,255,255,0.55)" font-size="9" font-family="sans-serif">LF</text>
-          <text x="93"  y="50"  text-anchor="middle" fill="rgba(255,255,255,0.55)" font-size="9" font-family="sans-serif">LC</text>
-          <text x="160" y="28"  text-anchor="middle" fill="rgba(255,255,255,0.55)" font-size="9" font-family="sans-serif">CF</text>
-          <text x="227" y="50"  text-anchor="middle" fill="rgba(255,255,255,0.55)" font-size="9" font-family="sans-serif">RC</text>
-          <text x="292" y="82"  text-anchor="middle" fill="rgba(255,255,255,0.55)" font-size="9" font-family="sans-serif">RF</text>
-          <text x="65"  y="170" text-anchor="middle" fill="rgba(255,255,255,0.45)" font-size="8" font-family="sans-serif">3B</text>
-          <text x="113" y="125" text-anchor="middle" fill="rgba(255,255,255,0.45)" font-size="8" font-family="sans-serif">SS</text>
-          <text x="207" y="125" text-anchor="middle" fill="rgba(255,255,255,0.45)" font-size="8" font-family="sans-serif">2B</text>
-          <text x="255" y="170" text-anchor="middle" fill="rgba(255,255,255,0.45)" font-size="8" font-family="sans-serif">1B</text>
-          <!-- 타구 도트 -->
-          ${dots}
-        </svg>
-        <!-- 범례 -->
-        <div style="display:flex;gap:10px;justify-content:center;font-size:10px;color:var(--txt2);margin:4px 0 8px;flex-wrap:wrap">
-          <span>🟢 안타</span><span>🔵 2루타</span><span>🟣 3루타</span><span>🔴 홈런</span><span>⚪ 아웃</span>
+  // ── 타자 기록 ──────────────────────────────────────────
+  if(be.length){
+    h+=`<div class="seclbl">타자 기록 (${be.length}타석)</div>`;
+    h+=be.slice().reverse().map(e=>{
+      const oc=ocInfo(e.oc);
+      const ex=[];
+      if(e.rbi>0)ex.push(`${e.rbi}타점`);
+      if(e.run>0)ex.push(`${e.run}득점`);
+      if(e.sb>0)ex.push('도루');
+      if(e.zone)ex.push(`📍${e.zone}`);
+      const sy=S.syncedIds.has(e.id);
+      return`<div class="logitem">
+        <div class="logbadge" style="background:${oc.bg};color:${oc.fg}">${oc.l}</div>
+        <div style="flex:1;min-width:0">
+          <div class="logplayer">${e.pn}${sy?' <span style="font-size:10px;color:#15803d">✓</span>':' <span style="font-size:10px;color:#f59e0b">●</span>'}</div>
+          <div class="logdetail">${ex.length?ex.join(' · '):'—'}</div>
         </div>
-        <!-- 방향 통계 -->
-        <div style="display:flex;gap:6px;margin:0 12px">
-          <div style="flex:1;background:var(--card);border-radius:var(--r);padding:8px;text-align:center;border:1px solid var(--bdr)">
-            <div style="font-size:18px;font-weight:700;color:var(--txt)">${pull}</div>
-            <div style="font-size:10px;color:var(--txt2)">당겨치기</div>
-          </div>
-          <div style="flex:1;background:var(--card);border-radius:var(--r);padding:8px;text-align:center;border:1px solid var(--bdr)">
-            <div style="font-size:18px;font-weight:700;color:var(--txt)">${ctr}</div>
-            <div style="font-size:10px;color:var(--txt2)">중앙</div>
-          </div>
-          <div style="flex:1;background:var(--card);border-radius:var(--r);padding:8px;text-align:center;border:1px solid var(--bdr)">
-            <div style="font-size:18px;font-weight:700;color:var(--txt)">${oppo}</div>
-            <div style="font-size:10px;color:var(--txt2)">밀어치기</div>
-          </div>
-        </div>`
-      }
-    </div>
-  </div>`;
-}
+        <button onclick="showEditBatModal('${e.id}')" style="background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:5px 8px;font-size:11px;color:var(--txt2);cursor:pointer;margin-right:4px;font-family:inherit;white-space:nowrap">✏ 편집</button>
+        <button class="delbtn" onclick="del('b','${e.id}')">✕</button>
+      </div>`;
+    }).join('');
+  }
 
-function setSprayPlayer(name){
-  S.sprayPlayer=(S.sprayPlayer===name)?null:name;
-  renderCt();
+  // ── 투수 기록 ──────────────────────────────────────────
+  if(pbf.length){
+    const pnos=[...new Set(pbf.map(e=>e.pno))];
+    h+=`<div class="seclbl">투수 기록 (${pbf.length}타자 상대)</div>`;
+    pnos.forEach(pno=>{
+      const p=ROSTER.find(x=>x.no===pno)||{name:'?',no:pno};
+      const st=calcPitStats(pno,gid);
+      const pitRuns=pr.filter(e=>e.pno===pno);
+      h+=`<div class="logitem" style="background:var(--bg2);flex-direction:column;align-items:stretch;gap:6px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="logbadge" style="background:var(--red);color:#fff;font-size:11px">#${pno}</div>
+          <div style="flex:1"><div class="logplayer">${p.name}</div>
+          <div class="logdetail">${st.ipd}이닝 · ${st.h}H · ${st.er}ER · ${st.bb}BB · ${st.k}K</div></div>
+        </div>
+        <div style="padding-left:46px;display:flex;flex-direction:column;gap:3px">
+          ${pbf.filter(e=>e.pno===pno).slice().reverse().map(e=>{
+            const oc=ocInfo(e.oc);const sy=S.syncedIds.has(e.id);
+            return`<div style="display:flex;align-items:center;gap:6px">
+              <span style="background:${oc.bg};color:${oc.fg};padding:2px 7px;border-radius:4px;font-size:11px;font-weight:500">${oc.l}</span>
+              ${sy?'<span style="font-size:10px;color:#15803d">✓</span>':'<span style="font-size:10px;color:#f59e0b">●</span>'}
+              <button onclick="showEditPitBfModal('${e.id}')" style="background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:3px 7px;font-size:10px;color:var(--txt2);cursor:pointer;font-family:inherit">✏</button>
+              <button onclick="del('pbf','${e.id}')" style="background:none;border:none;color:var(--txt2);cursor:pointer;font-size:14px;line-height:1">✕</button>
+            </div>`;
+          }).join('')}
+          ${pitRuns.length?`<div style="margin-top:3px;font-size:11px;color:var(--txt2)">
+            실점: ${pitRuns.map((r,i)=>`<span onclick="showEditPitRunModal('${r.id}')" style="cursor:pointer;text-decoration:underline;margin-right:6px">${r.earned?'자책':'비자책'} ✏</span>`).join('')}
+          </div>`:''}
+        </div>
+      </div>`;
+    });
+  }
+  return h;
 }
 
 function rStats(){
@@ -884,6 +860,93 @@ async function loadFromSheets(){
 }
 
 
+// ── 기록 편집 ──────────────────────────────────────────────
+let editState = {id:null, type:null, oc:null, rbi:0, run:0, sb:0, cs:0, zone:null, earned:null};
+
+function showEditBatModal(id){
+  const e=S.blog.find(x=>x.id===id); if(!e) return;
+  editState={id, type:'bat', oc:e.oc, rbi:e.rbi||0, run:e.run||0, sb:e.sb||0, cs:e.cs||0, zone:e.zone||null, earned:null};
+  renderEditModal();
+}
+function showEditPitBfModal(id){
+  const e=S.pit_bf.find(x=>x.id===id); if(!e) return;
+  editState={id, type:'pitbf', oc:e.oc, rbi:0, run:0, sb:0, cs:0, zone:null, earned:null};
+  renderEditModal();
+}
+function showEditPitRunModal(id){
+  const e=S.pit_runs.find(x=>x.id===id); if(!e) return;
+  editState={id, type:'pitrun', oc:null, rbi:0, run:0, sb:0, cs:0, zone:null, earned:e.earned};
+  renderEditModal();
+}
+
+function renderEditModal(){
+  const es=editState;
+  const isBat=es.type==='bat';
+  const isPitBf=es.type==='pitbf';
+  const isPitRun=es.type==='pitrun';
+  const e=isBat?S.blog.find(x=>x.id===es.id):isPitBf?S.pit_bf.find(x=>x.id===es.id):S.pit_runs.find(x=>x.id===es.id);
+  if(!e) return;
+  const isBIP=['1B','2B','3B','HR','GO','FO','DP','SF','FC','E'].includes(es.oc);
+  const zoneOF=['LF','LC','CF','RC','RF'];
+  const zoneIF=['3B','SS','2B','1B'];
+
+  document.getElementById('modal-root').innerHTML=`
+  <div class="edit-modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="edit-modal">
+    <h3>${isBat?'타자':'투수'} 기록 편집</h3>
+    <div class="sub">${e.pn} · ${e.date} vs ${e.opp}</div>
+
+    ${isPitRun?`
+      <div class="em-lbl">실점 종류</div>
+      <div style="display:flex;gap:10px;margin-bottom:10px">
+        <button onclick="editState.earned=true;renderEditModal()" style="flex:1;padding:14px;border:${es.earned===true?'2px solid var(--red)':'1px solid var(--bdr)'};border-radius:var(--r);background:${es.earned===true?'#FDEDEC':'var(--bg2)'};color:${es.earned===true?'var(--red)':'var(--txt2)'};cursor:pointer;font-size:14px;font-weight:600;font-family:inherit">자책점</button>
+        <button onclick="editState.earned=false;renderEditModal()" style="flex:1;padding:14px;border:${es.earned===false?'2px solid var(--navy)':'1px solid var(--bdr)'};border-radius:var(--r);background:${es.earned===false?'#EBF0FB':'var(--bg2)'};color:${es.earned===false?'var(--navy)':'var(--txt2)'};cursor:pointer;font-size:14px;font-weight:600;font-family:inherit">비자책점</button>
+      </div>`:
+    `<div class="em-lbl">타석 결과</div>
+    <div class="em-ocgrid">${[...OC_HIT,...OC_OB].map(o=>`<button class="em-ocbtn" style="background:${o.bg};color:${o.fg};opacity:${es.oc===o.id?1:.5}" onclick="editState.oc='${o.id}';${isBat?'editState.zone=null;':''}renderEditModal()">${o.l}</button>`).join('')}</div>
+    <div class="em-ocgrid">${OC_OUT.map(o=>`<button class="em-ocbtn" style="background:${o.bg};color:${o.fg};opacity:${es.oc===o.id?1:.5}" onclick="editState.oc='${o.id}';${isBat?'editState.zone=null;':''}renderEditModal()">${o.l}</button>`).join('')}</div>`}
+
+    ${isBat?`
+    <div class="em-row" style="grid-template-columns:repeat(${es.oc!=='SH'?3:2},1fr)">
+      ${es.oc!=='SH'?`<div class="em-card"><div class="em-card-lbl">타점</div><div class="em-card-val" id="em-rbi">${es.rbi}</div><div class="em-card-btns"><button class="em-card-btn" onclick="editState.rbi=Math.max(0,editState.rbi-1);document.getElementById('em-rbi').textContent=editState.rbi">−</button><button class="em-card-btn" onclick="editState.rbi++;document.getElementById('em-rbi').textContent=editState.rbi">+</button></div></div>`:''}
+      <div class="em-card"><div class="em-card-lbl">득점</div><div class="em-card-val" id="em-run">${es.run}</div><div class="em-card-btns"><button class="em-card-btn" onclick="editState.run=Math.max(0,editState.run-1);document.getElementById('em-run').textContent=editState.run">−</button><button class="em-card-btn" onclick="editState.run++;document.getElementById('em-run').textContent=editState.run">+</button></div></div>
+      <div class="em-card"><div class="em-card-lbl">도루</div><div class="em-card-val" id="em-sb">${es.sb}</div><div class="em-card-btns"><button class="em-card-btn" onclick="editState.sb=Math.max(0,editState.sb-1);document.getElementById('em-sb').textContent=editState.sb">−</button><button class="em-card-btn" onclick="editState.sb++;document.getElementById('em-sb').textContent=editState.sb">+</button></div></div>
+    </div>
+    ${isBIP?`<div class="em-lbl">타구 방향 <span style="font-weight:400">(선택사항)</span></div>
+    <div class="em-zone-of">${zoneOF.map(z=>`<button class="em-zbtn" onclick="editState.zone=editState.zone==='${z}'?null:'${z}';renderEditModal()" style="border:${es.zone===z?'2px solid var(--navy)':'1px solid var(--bdr)'};background:${es.zone===z?'#EBF0FB':'var(--bg2)'};color:${es.zone===z?'var(--navy)':'var(--txt2)'};font-weight:${es.zone===z?'700':'400'}">${z}</button>`).join('')}</div>
+    <div class="em-zone-if">${zoneIF.map(z=>`<button class="em-zbtn" onclick="editState.zone=editState.zone==='${z}'?null:'${z}';renderEditModal()" style="border:${es.zone===z?'2px solid var(--red)':'1px solid var(--bdr)'};background:${es.zone===z?'#FDEDEC':'var(--bg2)'};color:${es.zone===z?'var(--red)':'var(--txt2)'};font-weight:${es.zone===z?'700':'400'}">${z}</button>`).join('')}</div>`:''}
+    `:''}
+
+    <div class="em-btns">
+      <button class="em-cancel" onclick="closeModal()">취소</button>
+      <button class="em-save" onclick="confirmEditEntry()">✓ 저장</button>
+    </div>
+  </div></div>`;
+}
+
+function confirmEditEntry(){
+  const es=editState;
+  if(es.type==='bat'){
+    const idx=S.blog.findIndex(x=>x.id===es.id);
+    if(idx<0)return;
+    S.blog[idx]={...S.blog[idx],oc:es.oc,rbi:es.rbi,run:es.run,sb:es.sb,cs:es.cs,zone:es.zone};
+    S.syncedIds.delete(es.id); // 재동기화 필요
+  } else if(es.type==='pitbf'){
+    const idx=S.pit_bf.findIndex(x=>x.id===es.id);
+    if(idx<0)return;
+    S.pit_bf[idx]={...S.pit_bf[idx],oc:es.oc};
+    S.syncedIds.delete(es.id);
+  } else if(es.type==='pitrun'){
+    const idx=S.pit_runs.findIndex(x=>x.id===es.id);
+    if(idx<0)return;
+    S.pit_runs[idx]={...S.pit_runs[idx],earned:es.earned};
+    S.syncedIds.delete(es.id);
+  }
+  save();closeModal();renderCt();
+  toast('수정 완료 — 동기화 필요','ok');
+}
+
+
 async function doSync(){
   if(!S.scriptUrl||S.syncing)return;
   const bP=S.blog.filter(e=>!S.syncedIds.has(e.id));
@@ -893,12 +956,14 @@ async function doSync(){
   if(!bP.length&&!pfP.length&&!prP.length&&!S.rosterDirty){toast('동기화할 데이터 없음');return;}
   S.syncing=true;r();
   try{
-    // ① 기록 데이터: no-cors POST (CORS 우회)
-    await fetch(S.scriptUrl,{
+    // ① 기록 데이터: text/plain POST (simple request → CORS 허용, 응답 확인 가능)
+    const syncRes=await fetch(S.scriptUrl,{
       method:'POST',
-      mode:'no-cors',
+      headers:{'Content-Type':'text/plain;charset=UTF-8'},
       body:JSON.stringify({type:'sync',games:gP,bat_log:bP,pit_bf:pfP,pit_runs:prP})
     });
+    const syncData=await syncRes.json();
+    if(syncData.status!=='ok') throw new Error(syncData.message||'서버 오류');
     bP.forEach(e=>S.syncedIds.add(e.id));
     pfP.forEach(e=>S.syncedIds.add(e.id));
     prP.forEach(e=>S.syncedIds.add(e.id));
