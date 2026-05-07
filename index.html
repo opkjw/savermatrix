@@ -716,69 +716,117 @@ function rStats(){
 
 // ── 스프레이 차트 ─────────────────────────────────────────
 function rSprayChart(playerName){
-  var entries=S.blog.filter(function(e){return e.pn===playerName&&e.zone;});
-  var all=S.blog.filter(function(e){return e.pn===playerName;});
-  var ZP={'LF':{x:42,y:80},'LC':{x:98,y:50},'CF':{x:160,y:33},
-          'RC':{x:222,y:50},'RF':{x:278,y:80},
-          '3B':{x:72,y:152},'SS':{x:118,y:118},'2B':{x:202,y:118},'1B':{x:248,y:152}};
-  var pull=entries.filter(function(e){return e.zone==='3B'||e.zone==='LF';}).length;
-  var ctr=entries.filter(function(e){return ['SS','2B','LC','CF','RC'].includes(e.zone);}).length;
-  var oppo=entries.filter(function(e){return e.zone==='1B'||e.zone==='RF';}).length;
-  var dots='';
-  for(var i=0;i<entries.length;i++){
-    var e=entries[i],pos=ZP[e.zone];
-    if(!pos)continue;
-    var isHit=['1B','2B','3B','HR'].includes(e.oc);
-    var fill=e.oc==='HR'?'#ef4444':e.oc==='3B'?'#8b5cf6':e.oc==='2B'?'#3b82f6':isHit?'#22c55e':'#9ca3af';
-    var sz=e.oc==='HR'?8:5;
-    var ox=((i*37+7)%15)-7,oy=((i*53+11)%15)-7;
-    dots+='<circle cx="'+(pos.x+ox)+'" cy="'+(pos.y+oy)+'" r="'+sz+'" fill="'+fill+'" opacity=".85" stroke="white" stroke-width="1.5"/>';
-    var lbl=e.oc==='HR'?'HR':e.oc==='3B'?'3B':e.oc==='2B'?'2B':isHit?'H':'';
-    if(lbl)dots+='<text x="'+(pos.x+ox)+'" y="'+(pos.y+oy+3.5)+'" text-anchor="middle" fill="white" font-size="5.5" font-weight="bold">'+lbl+'</text>';
+  var blog=S.blog.filter(function(e){return e.pn===playerName;});
+  var entries=blog.filter(function(e){return e.zone;});
+  var cx=175,cy=200,r=162;
+  var SECTORS=[
+    {label:'3루선', keys:['3B'],           startDeg:-45,endDeg:-26,color:'#e74c3c',inner:'#922b21'},
+    {label:'유격수', keys:['SS'],           startDeg:-26,endDeg:-8, color:'#f39c12',inner:'#d35400'},
+    {label:'중앙',   keys:['LC','CF','RC'], startDeg:-8, endDeg:10, color:'#f1c40f',inner:'#d4ac0d'},
+    {label:'2루수',  keys:['2B'],           startDeg:10, endDeg:28, color:'#2ecc71',inner:'#1e8449'},
+    {label:'1루선',  keys:['1B'],           startDeg:28, endDeg:45, color:'#16a085',inner:'#0e6655'},
+  ];
+  function pxy(deg){
+    var rd=deg*Math.PI/180;
+    return{x:cx+r*Math.sin(rd),y:cy-r*Math.cos(rd)};
   }
-  var field='<svg viewBox="0 0 320 215" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block;margin:0 auto">'
-    +'<path d="M 160 205 L 12 90 A 163 163 0 0 1 308 90 Z" fill="#3d7a35"/>'
-    +'<path d="M 160 205 L 80 148 L 160 86 L 240 148 Z" fill="#c8a060"/>'
-    +'<ellipse cx="160" cy="146" rx="13" ry="9" fill="#b89058"/>'
-    +'<line x1="160" y1="205" x2="12" y2="90" stroke="white" stroke-width="1.5" opacity=".6"/>'
-    +'<line x1="160" y1="205" x2="308" y2="90" stroke="white" stroke-width="1.5" opacity=".6"/>'
-    +'<path d="M 12 90 A 163 163 0 0 1 308 90" fill="none" stroke="white" stroke-width="1.5" stroke-dasharray="5 3" opacity=".5"/>'
-    +'<polyline points="160,205 80,148 160,86 240,148 160,205" fill="none" stroke="white" stroke-width="1" opacity=".45"/>'
-    +'<polygon points="160,200 166,205 160,210 154,205" fill="white"/>'
-    +'<polygon points="80,143 86,148 80,153 74,148" fill="white"/>'
-    +'<polygon points="160,81 166,86 160,91 154,86" fill="white"/>'
-    +'<polygon points="240,143 246,148 240,153 234,148" fill="white"/>'
-    +'<text x="28" y="84" text-anchor="middle" fill="rgba(255,255,255,.6)" font-size="9">LF</text>'
-    +'<text x="93" y="52" text-anchor="middle" fill="rgba(255,255,255,.6)" font-size="9">LC</text>'
-    +'<text x="160" y="29" text-anchor="middle" fill="rgba(255,255,255,.6)" font-size="9">CF</text>'
-    +'<text x="227" y="52" text-anchor="middle" fill="rgba(255,255,255,.6)" font-size="9">RC</text>'
-    +'<text x="292" y="84" text-anchor="middle" fill="rgba(255,255,255,.6)" font-size="9">RF</text>'
-    +'<text x="64" y="170" text-anchor="middle" fill="rgba(255,255,255,.4)" font-size="8">3B</text>'
-    +'<text x="112" y="126" text-anchor="middle" fill="rgba(255,255,255,.4)" font-size="8">SS</text>'
-    +'<text x="208" y="126" text-anchor="middle" fill="rgba(255,255,255,.4)" font-size="8">2B</text>'
-    +'<text x="256" y="170" text-anchor="middle" fill="rgba(255,255,255,.4)" font-size="8">1B</text>'
-    +dots+'</svg>';
-  var noData=entries.length===0;
-  var body=noData
-    ?'<div style="padding:20px;text-align:center;font-size:12px;color:var(--txt2)">타구 방향 데이터가 없습니다.<br><span style="font-size:11px;opacity:.7">타석 입력 시 방향을 선택하면 표시됩니다.</span></div>'
-    :(field
-      +'<div style="display:flex;gap:10px;justify-content:center;font-size:10px;color:var(--txt2);margin:4px 0 8px;flex-wrap:wrap">'
-      +'<span style="color:#22c55e">● 안타</span><span style="color:#3b82f6">● 2루타</span>'
-      +'<span style="color:#8b5cf6">● 3루타</span><span style="color:#ef4444">● 홈런</span>'
-      +'<span style="color:#9ca3af">● 아웃</span></div>'
-      +'<div style="display:flex;gap:6px;margin:0 12px 4px">'
-      +'<div style="flex:1;background:var(--bg2);border-radius:var(--r);padding:8px;text-align:center"><div style="font-size:18px;font-weight:700">'+pull+'</div><div style="font-size:10px;color:var(--txt2)">당겨치기</div></div>'
-      +'<div style="flex:1;background:var(--bg2);border-radius:var(--r);padding:8px;text-align:center"><div style="font-size:18px;font-weight:700">'+ctr+'</div><div style="font-size:10px;color:var(--txt2)">중앙</div></div>'
-      +'<div style="flex:1;background:var(--bg2);border-radius:var(--r);padding:8px;text-align:center"><div style="font-size:18px;font-weight:700">'+oppo+'</div><div style="font-size:10px;color:var(--txt2)">밀어치기</div></div>'
-      +'<div style="flex:1;background:var(--bg2);border-radius:var(--r);padding:8px;text-align:center"><div style="font-size:18px;font-weight:700;color:var(--navy)">'+entries.length+'</div><div style="font-size:10px;color:var(--txt2)">방향기록</div></div>'
-      +'</div>');
+  function f(v){return v.toFixed(1);}
+  var sc=SECTORS.map(function(s){
+    return Object.assign({},s,{count:s.keys.reduce(function(a,k){return a+(entries.filter(function(e){return e.zone===k;}).length);},0)});
+  });
+  var total=sc.reduce(function(a,x){return a+x.count;},0);
+  var noData=total===0;
+  var h='';
+
+  if(noData){
+    // 데이터 없을 때도 팬 틀은 보여줌
+    var bg0=pxy(-45),bg1=pxy(45);
+    h+='<path d="M '+cx+' '+cy+' L '+f(bg0.x)+' '+f(bg0.y)+' A '+r+' '+r+' 0 0 1 '+f(bg1.x)+' '+f(bg1.y)+' Z" fill="rgba(255,255,255,.06)"/>';
+    sc.forEach(function(s){
+      var p1=pxy(s.startDeg),p2=pxy(s.endDeg);
+      h+='<path d="M '+cx+' '+cy+' L '+f(p1.x)+' '+f(p1.y)+' A '+r+' '+r+' 0 0 1 '+f(p2.x)+' '+f(p2.y)+' Z" fill="'+s.color+'" opacity="0.18"/>';
+      var mid=(s.startDeg+s.endDeg)/2;
+      var ep={x:cx+(r*0.6)*Math.sin(mid*Math.PI/180),y:cy-(r*0.6)*Math.cos(mid*Math.PI/180)};
+      h+='<text x="'+f(ep.x)+'" y="'+f(ep.y)+'" text-anchor="middle" dominant-baseline="middle" fill="rgba(255,255,255,.25)" font-size="11">'+s.label+'</text>';
+    });
+  } else {
+    // 거리 반호
+    [0.48,0.74].forEach(function(ratio){
+      var s=pxy(-45),e=pxy(45);
+      var ri=r*ratio;
+      var si={x:cx+ri*Math.sin(-45*Math.PI/180),y:cy-ri*Math.cos(-45*Math.PI/180)};
+      var ei={x:cx+ri*Math.sin(45*Math.PI/180),y:cy-ri*Math.cos(45*Math.PI/180)};
+      h+='<path d="M '+f(si.x)+' '+f(si.y)+' A '+f(ri)+' '+f(ri)+' 0 0 1 '+f(ei.x)+' '+f(ei.y)+'" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="1" stroke-dasharray="3 4"/>';
+    });
+    // 섹터
+    sc.forEach(function(s){
+      var p1=pxy(s.startDeg),p2=pxy(s.endDeg);
+      var pct=Math.round(s.count/total*100);
+      // 섹터 채움
+      h+='<path d="M '+cx+' '+cy+' L '+f(p1.x)+' '+f(p1.y)+' A '+r+' '+r+' 0 0 1 '+f(p2.x)+' '+f(p2.y)+' Z" fill="'+s.color+'" opacity="0.88"/>';
+      // 안쪽 어둠
+      var ri=r*0.38;
+      var p1i={x:cx+ri*Math.sin(s.startDeg*Math.PI/180),y:cy-ri*Math.cos(s.startDeg*Math.PI/180)};
+      var p2i={x:cx+ri*Math.sin(s.endDeg*Math.PI/180),y:cy-ri*Math.cos(s.endDeg*Math.PI/180)};
+      h+='<path d="M '+cx+' '+cy+' L '+f(p1i.x)+' '+f(p1i.y)+' A '+f(ri)+' '+f(ri)+' 0 0 1 '+f(p2i.x)+' '+f(p2i.y)+' Z" fill="'+s.inner+'" opacity="0.4"/>';
+      var mid=(s.startDeg+s.endDeg)/2;
+      var lp={x:cx+(r*0.62)*Math.sin(mid*Math.PI/180),y:cy-(r*0.62)*Math.cos(mid*Math.PI/180)};
+      // % 텍스트 - 폰트 크기 조정
+      h+='<text x="'+f(lp.x)+'" y="'+f(lp.y)+'" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="20" font-weight="900" opacity=".95">'+pct+'%</text>';
+      // 타구수
+      if(s.count>0){
+        h+='<text x="'+f(lp.x)+'" y="'+f(lp.y+15)+'" text-anchor="middle" dominant-baseline="middle" fill="rgba(255,255,255,.6)" font-size="10">'+s.count+'타구</text>';
+      }
+      // 구역 레이블 - 호 가장자리
+      var ep={x:cx+(r*0.87)*Math.sin(mid*Math.PI/180),y:cy-(r*0.87)*Math.cos(mid*Math.PI/180)};
+      h+='<text x="'+f(ep.x)+'" y="'+f(ep.y)+'" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="9.5" font-weight="600" opacity="0.75">'+s.label+'</text>';
+    });
+  }
+
+  // 구분선
+  [-26,-8,10,28].forEach(function(deg){
+    var ep=pxy(deg);
+    h+='<line x1="'+cx+'" y1="'+cy+'" x2="'+f(ep.x)+'" y2="'+f(ep.y)+'" stroke="rgba(0,0,0,.28)" stroke-width="1.5"/>';
+  });
+  // 파울라인
+  var fl=pxy(-45),fr=pxy(45);
+  h+='<line x1="'+cx+'" y1="'+cy+'" x2="'+f(fl.x)+'" y2="'+f(fl.y)+'" stroke="rgba(255,255,255,.55)" stroke-width="2.5"/>';
+  h+='<line x1="'+cx+'" y1="'+cy+'" x2="'+f(fr.x)+'" y2="'+f(fr.y)+'" stroke="rgba(255,255,255,.55)" stroke-width="2.5"/>';
+  // 외야 펜스 호
+  h+='<path d="M '+f(fl.x)+' '+f(fl.y)+' A '+r+' '+r+' 0 0 1 '+f(fr.x)+' '+f(fr.y)+'" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>';
+  // 홈플레이트
+  h+='<polygon points="'+cx+','+(cy-8)+' '+(cx+6)+','+(cy+1)+' '+(cx+3)+','+(cy+7)+' '+(cx-3)+','+(cy+7)+' '+(cx-6)+','+(cy+1)+'" fill="white" opacity=".9"/>';
+  // 제목
+  h+='<text x="175" y="12" text-anchor="middle" fill="white" font-size="13" font-weight="700" opacity=".9">'+playerName+'의 스프레이 차트</text>';
+  h+='<text x="175" y="25" text-anchor="middle" fill="rgba(255,255,255,.42)" font-size="9.5">'+total+'타구 방향 기록 / 전체 '+blog.length+'타석</text>';
+
+  // 하단 요약 통계
+  var pull=sc[0].count+sc[1].count;
+  var ctr=sc[2].count;
+  var oppo=sc[3].count+sc[4].count;
+  var pp=total>0?Math.round(pull/total*100):0;
+  var cp=total>0?Math.round(ctr/total*100):0;
+  var op=total>0?Math.round(oppo/total*100):0;
+
   return '<div style="padding:0 12px 8px">'
-    +'<div style="background:var(--bg2);border-radius:var(--rl);overflow:hidden;padding:10px 0 8px">'
-    +'<div style="display:flex;align-items:center;justify-content:space-between;padding:0 12px 8px">'
-    +'<span style="font-size:12px;font-weight:600;color:var(--txt2)">'+playerName+'의 스프레이 차트 ('+entries.length+'/'+all.length+'타석)</span>'
-    +'<button onclick="setSprayPlayer(\''+playerName+'\')" style="background:none;border:none;color:var(--txt2);cursor:pointer;font-size:18px">✕</button>'
-    +'</div>'+body+'</div></div>';
+    +'<div style="background:#111827;border-radius:14px;overflow:hidden;padding:12px 0 10px">'
+    +'<div style="display:flex;align-items:center;justify-content:flex-end;padding:0 12px 6px">'
+    +'<button onclick="setSprayPlayer(&apos;'+playerName+'&apos;)" style="background:rgba(255,255,255,.15);border:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:13px;padding:4px 8px;border-radius:6px;line-height:1">✕</button>'
+    +'</div>'
+    +'<svg viewBox="0 0 350 215" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">'+h+'</svg>'
+    // 범례
+    +'<div style="display:flex;gap:8px;justify-content:center;margin:6px 0 8px;flex-wrap:wrap">'
+    +'<span style="font-size:10px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e74c3c"></span>당겨치기</span>'
+    +'<span style="font-size:10px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#f39c12"></span>유격수</span>'
+    +'<span style="font-size:10px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#f1c40f"></span>중앙</span>'
+    +'<span style="font-size:10px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#2ecc71"></span>2루수</span>'
+    +'<span style="font-size:10px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#16a085"></span>밀어치기</span>'
+    +'</div>'
+    // 3단 요약
+    +(noData?('<div style="padding:0 12px;text-align:center;font-size:11px;color:rgba(255,255,255,.35)">타구 방향 데이터가 없습니다. 타석 입력 시 방향을 선택하면 표시됩니다.</div>'):('<div style="display:flex;gap:6px;margin:0 12px">'+('<div style="flex:1;text-align:center;padding:8px 4px;border-radius:8px;background:rgba(255,255,255,.07)"><div style="font-size:18px;font-weight:800;color:#f87171">'+pp+'%</div><div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px">당겨치기</div></div>')+('<div style="flex:1;text-align:center;padding:8px 4px;border-radius:8px;background:rgba(255,255,255,.07)"><div style="font-size:18px;font-weight:800;color:#fde047">'+cp+'%</div><div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px">중앙</div></div>')+('<div style="flex:1;text-align:center;padding:8px 4px;border-radius:8px;background:rgba(255,255,255,.07)"><div style="font-size:18px;font-weight:800;color:#4ade80">'+op+'%</div><div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px">밀어치기</div></div>')+('<div style="flex:1;text-align:center;padding:8px 4px;border-radius:8px;background:rgba(255,255,255,.07)"><div style="font-size:18px;font-weight:800;color:white">'+total+'</div><div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px">기록타구</div></div>')+'</div>'))
+    +'</div></div>';
 }
+
 function setSprayPlayer(name){
   S.sprayPlayer=(S.sprayPlayer===name)?null:name;
   renderCt();
