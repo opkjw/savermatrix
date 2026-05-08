@@ -101,6 +101,8 @@ table.pit th{background:var(--red)}
 td{padding:6px 5px;text-align:center;border-bottom:1px solid var(--bdr);color:var(--txt);white-space:nowrap}
 tr:nth-child(even) td{background:var(--bg2)}
 .hi{color:var(--navy);font-weight:600}.hir{color:var(--red);font-weight:600}
+.sth{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;text-decoration-color:rgba(255,255,255,.5)}
+.sth:active{opacity:.7}
 .seclbl{padding:10px 14px 4px;font-size:11px;font-weight:600;color:var(--txt2);letter-spacing:.04em;text-transform:uppercase}
 .empty{padding:40px 20px;text-align:center;color:var(--txt2)}
 .cfgwrap{padding:12px}
@@ -146,6 +148,25 @@ tr:nth-child(even) td{background:var(--bg2)}
 #toast.ok{background:#15803d}#toast.err{background:#991b1b}#toast.off{opacity:0}
 @keyframes flash{0%{background:#fde68a}100%{background:var(--card)}}
 .flash{animation:flash .5s ease-out}
+.cal-wrap{background:var(--card);border-bottom:1px solid var(--bdr)}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;padding:10px 14px 8px}
+.cal-nav span{font-size:15px;font-weight:700;color:var(--txt)}
+.cal-nav button{width:32px;height:32px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--bg2);cursor:pointer;font-size:18px;color:var(--txt2);display:flex;align-items:center;justify-content:center;font-family:inherit;line-height:1}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);padding:0 8px 6px;gap:2px}
+.cal-dow{text-align:center;font-size:10px;font-weight:600;padding:4px 0;letter-spacing:.02em}
+.cal-cell{display:flex;flex-direction:column;align-items:center;padding:4px 2px;min-height:40px;border-radius:var(--r);cursor:default;gap:3px}
+.cal-cell.has-game{cursor:pointer}
+.cal-cell.has-game:active{background:var(--bg2)}
+.cal-cell.selected{background:#EBF0FB}
+.cal-day{font-size:13px;font-weight:400;color:var(--txt);line-height:1.2}
+.cal-cell.selected .cal-day{font-weight:700;color:var(--navy)}
+.cal-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.cal-legend{display:flex;gap:14px;padding:4px 14px 8px;font-size:11px;color:var(--txt2)}
+.cal-legend span{display:flex;align-items:center;gap:5px}
+.cal-summary{border-top:1px solid var(--bdr);padding:12px 14px}
+.cal-sum-date{font-size:13px;font-weight:600;color:var(--txt);margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cal-sum-player{font-size:12px;font-weight:600;color:var(--txt2);margin-bottom:3px}
+.cal-sum-stat{font-size:13px;color:var(--txt);line-height:1.8}
 </style>
 </head>
 <body>
@@ -208,7 +229,7 @@ let S={
   // 통계
   sprayPlayer:null,statsFilter:'all',
   // 기록
-  logGameId:null,
+  logGameId:null,calMonth:null,myPlayer:null,
   // 설정
   rosterSub:0,
   // 데이터
@@ -252,6 +273,32 @@ function paS(o){
   return{pa:1,ab:noAB.includes(o)?0:1,h:hits.includes(o)?1:0,
     d2:o==="2B"?1:0,d3:o==="3B"?1:0,hr:o==="HR"?1:0,
     bb:(o==="BB"||o==="IBB")?1:0,hbp:o==="HBP"?1:0,so:o==="K"?1:0,sf:o==="SF"?1:0};
+}
+// MLB 기준 등급 판별
+const MLB_BENCH={
+  AVG: {good:0.280,bad:0.220,rev:false},
+  OBP: {good:0.350,bad:0.300,rev:false},
+  SLG: {good:0.450,bad:0.350,rev:false},
+  OPS: {good:0.800,bad:0.650,rev:false},
+  wOBA:{good:0.360,bad:0.300,rev:false},
+  'wRC+':{good:115,bad:85,rev:false},
+  ISO: {good:0.170,bad:0.090,rev:false},
+  BABIP:{good:0.340,bad:0.260,rev:false},
+  'BB%':{good:0.10,bad:0.06,rev:false},
+  'K%': {good:0.15,bad:0.23,rev:true},
+  'BB/K':{good:0.70,bad:0.35,rev:false},
+  WAR: {good:2.0,bad:0,rev:false},
+};
+function statTier(key,val){
+  const b=MLB_BENCH[key];
+  if(!b)return'avg';
+  if(b.rev)return val<=b.good?'good':val>=b.bad?'bad':'avg';
+  return val>=b.good?'good':val<=b.bad?'bad':'avg';
+}
+function tierStyle(tier){
+  if(tier==='good')return{bg:'#f0fdf4',fc:'#15803d',mark:'▲'};
+  if(tier==='bad') return{bg:'#fff5f5',fc:'#b91c1c',mark:'▼'};
+  return{bg:'var(--card)',fc:'var(--txt2)',mark:'—'};
 }
 function batAgg(filtGids){
   const m={};
@@ -545,54 +592,103 @@ function rLog(){
 
   // 선택 경기
   const selGid=S.logGameId||(S.game?S.game.id:allGames[0]&&allGames[0].id);
-  const selIdx=allGames.findIndex(g=>g.id===selGid);
-  const selGame=allGames[selIdx]||allGames[0];
-  const prevGid=selIdx<allGames.length-1?allGames[selIdx+1].id:null;
-  const nextGid=selIdx>0?allGames[selIdx-1].id:null;
-  const isCurGame=S.game&&S.game.id===selGid;
 
-  // 경기 네비게이터
-  const navBtn='display:inline-flex;align-items:center;justify-content:center;'
-    +'width:36px;height:36px;border-radius:var(--r);border:1px solid var(--bdr);'
-    +'background:var(--card);cursor:pointer;font-size:16px;flex-shrink:0;font-family:inherit;color:var(--txt)';
-  const navBtnDis='display:inline-flex;align-items:center;justify-content:center;'
-    +'width:36px;height:36px;border-radius:var(--r);border:1px solid var(--bdr);'
-    +'background:var(--bg2);cursor:default;font-size:16px;flex-shrink:0;color:var(--txt2);opacity:.35';
+  // 달력 표시 월 결정
+  const now=new Date();
+  let calMon=S.calMonth;
+  if(!calMon){
+    const refGame=allGames.find(g=>g.id===selGid)||allGames[0];
+    calMon=refGame&&refGame.date?refGame.date.slice(0,7)
+      :(now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'));
+  }
+  const calY=parseInt(calMon.slice(0,4)),calM=parseInt(calMon.slice(5,7));
+  const prevMon=calM===1?(calY-1)+'-12':calY+'-'+String(calM-1).padStart(2,'0');
+  const nextMon=calM===12?(calY+1)+'-01':calY+'-'+String(calM+1).padStart(2,'0');
+  const firstDow=new Date(calY,calM-1,1).getDay();
+  const daysInMon=new Date(calY,calM,0).getDate();
 
-  let h='<div style="padding:10px 12px 0;background:var(--card);border-bottom:1px solid var(--bdr)">';
-  // 이전/다음 + 드롭다운 행
-  h+='<div style="display:flex;align-items:center;gap:8px">';
-  h+='<button '+(prevGid?'onclick="S.logGameId=\''+prevGid+'\';renderCt()"':'disabled')
-    +' style="'+(prevGid?navBtn:navBtnDis)+'">&#8249;</button>';
-  h+='<select onchange="S.logGameId=this.value;renderCt()" '
-    +'style="flex:1;height:36px;border-radius:var(--r);border:1px solid var(--bdr);'
-    +'background:var(--card);color:var(--txt);font-size:13px;font-weight:600;'
-    +'padding:0 8px;font-family:inherit;cursor:pointer;-webkit-appearance:none;appearance:none;'
-    +'background-image:url(\'data:image/svg+xml,<svg xmlns=\\\'http://www.w3.org/2000/svg\\\' width=\\\'10\\\' height=\\\'6\\\'><path d=\\\'M0 0l5 6 5-6z\\\' fill=\\\'%23888\\\'/></svg>\');'
-    +'background-repeat:no-repeat;background-position:right 10px center;padding-right:28px">';
+  // 이 달의 경기 맵 {dd -> game}
+  const gameMap={};
   allGames.forEach(g=>{
-    const isCur=S.game&&S.game.id===g.id;
-    h+='<option value="'+g.id+'"'+(g.id===selGid?' selected':'')+'>'
-      +(isCur?'● ':'')+(g.date?g.date+' ':'')+'G'+(g.no||'?')+' vs '+g.opp
-      +(g.type==='P'?' [연습]':'')
-      +'</option>';
+    if(g.date&&g.date.slice(0,7)===calMon){
+      const dd=g.date.slice(8,10);
+      if(!gameMap[dd])gameMap[dd]=g;
+    }
   });
-  h+='</select>';
-  h+='<button '+(nextGid?'onclick="S.logGameId=\''+nextGid+'\';renderCt()"':'disabled')
-    +' style="'+(nextGid?navBtn:navBtnDis)+'">&#8250;</button>';
-  h+='</div>';
 
-  // 선택 경기 요약 배지 행
-  const beCnt=S.blog.filter(e=>e.gid===selGid).length;
-  const pbfPnos=new Set(S.pit_bf.filter(e=>e.gid===selGid).map(e=>e.pno));
-  const pbfCnt=S.pit_bf.filter(e=>e.gid===selGid).length;
-  h+='<div style="display:flex;align-items:center;gap:8px;padding:8px 2px 10px;font-size:11px;color:var(--txt2)">';
-  if(isCurGame)h+='<span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:2px 8px;font-weight:700;font-size:11px">진행중</span>';
-  if(beCnt)h+='<span style="background:#EBF0FB;color:var(--navy);border-radius:4px;padding:2px 8px">타석 '+beCnt+'</span>';
-  if(pbfCnt)h+='<span style="background:#f0fdf4;color:#15803d;border-radius:4px;padding:2px 8px">'+pbfPnos.size+'투수 · '+pbfCnt+'타자</span>';
-  if(!beCnt&&!pbfCnt)h+='<span>기록 없음</span>';
-  h+='<span style="margin-left:auto">'+allGames.length+'경기 중 '+(selIdx+1)+'번째</span>';
+  // 달력 렌더
+  const DOW=['일','월','화','수','목','금','토'];
+  let h='<div class="cal-wrap">';
+  h+='<div class="cal-nav">'
+    +'<button onclick="S.calMonth=\''+prevMon+'\';renderCt()">&#8249;</button>'
+    +'<span>'+calY+'년 '+calM+'월</span>'
+    +'<button onclick="S.calMonth=\''+nextMon+'\';renderCt()">&#8250;</button>'
+    +'</div>';
+  h+='<div class="cal-grid">';
+  DOW.forEach(function(d,i){
+    h+='<div class="cal-dow" style="color:'+(i===0?'#ef4444':i===6?'#3b82f6':'var(--txt2)')+'">'+d+'</div>';
+  });
+  for(var ei=0;ei<firstDow;ei++)h+='<div class="cal-cell"></div>';
+  for(var day=1;day<=daysInMon;day++){
+    var ds=String(day).padStart(2,'0');
+    var g=gameMap[ds];
+    var isSel=g&&g.id===selGid;
+    var isOff=g&&(g.type||'O')==='O';
+    var dow=new Date(calY,calM-1,day).getDay();
+    var dc=dow===0?'#ef4444':dow===6?'#3b82f6':'var(--txt)';
+    var isCurG=g&&S.game&&g.id===S.game.id;
+    h+='<div class="cal-cell'+(g?' has-game':'')+(isSel?' selected':'')+'"'
+      +(g?' onclick="S.logGameId=\''+g.id+'\';S.calMonth=\''+calMon+'\';renderCt()"':'')+' >';
+    h+='<span class="cal-day" style="color:'+dc+'">'+(isCurG?'<strong>'+day+'</strong>':day)+'</span>';
+    if(g)h+='<span class="cal-dot" style="background:'+(isOff?'var(--navy)':'#16a34a')+'"></span>';
+    h+='</div>';
+  }
   h+='</div>';
+  h+='<div class="cal-legend">'
+    +'<span><span class="cal-dot" style="background:var(--navy);display:inline-block"></span>정식경기</span>'
+    +'<span><span class="cal-dot" style="background:#16a34a;display:inline-block"></span>연습경기</span>'
+    +'</div>';
+
+  // 선택 경기 요약
+  const selGame=allGames.find(function(g){return g.id===selGid;});
+  if(selGame){
+    var sd=selGame.date||'';
+    var sdParts=sd.split('-');
+    var sdow=sd?['일','월','화','수','목','금','토'][new Date(parseInt(sdParts[0]),parseInt(sdParts[1])-1,parseInt(sdParts[2])).getDay()]:'';
+    var isOffSel=(selGame.type||'O')==='O';
+    var isCurSel=S.game&&S.game.id===selGid;
+    h+='<div class="cal-summary">';
+    h+='<div class="cal-sum-date">';
+    if(sd)h+=parseInt(sdParts[1])+'월 '+parseInt(sdParts[2])+'일 ('+sdow+') &nbsp;';
+    h+='G'+(selGame.no||'?')+' vs '+selGame.opp;
+    h+=' <span style="background:'+(isOffSel?'#EBF0FB':'#dcfce7')+';color:'+(isOffSel?'var(--navy)':'#15803d')+';border-radius:4px;padding:1px 8px;font-size:11px;font-weight:600">'+(isOffSel?'정식':'연습')+'</span>';
+    if(isCurSel)h+=' <span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 8px;font-size:11px;font-weight:700">진행중</span>';
+    h+='</div>';
+
+    // 대표 선수 기록
+    if(S.myPlayer){
+      var mp=ROSTER.find(function(x){return x.no===S.myPlayer;});
+      if(mp){
+        var mpBat=S.blog.filter(function(e){return e.gid===selGid&&e.pno===S.myPlayer;});
+        var mpPit=S.pit_bf.filter(function(e){return e.gid===selGid&&e.pno===S.myPlayer;});
+        h+='<div class="cal-sum-player">#'+mp.no+' '+mp.name+'</div>';
+        if(mpBat.length){
+          var bAB=0,bH=0,bRBI=0;
+          mpBat.forEach(function(e){var s=paS(e.oc);bAB+=s.ab;bH+=s.h;bRBI+=e.rbi||0;});
+          h+='<div class="cal-sum-stat">타격 · '+bAB+'타수 '+bH+'안타'+(bRBI?' · '+bRBI+'타점':'')+'</div>';
+        }
+        if(mpPit.length){
+          var ps=calcPitStats(S.myPlayer,selGid);
+          h+='<div class="cal-sum-stat">투수 · '+ps.ipd+'이닝'+(ps.r?' · '+ps.r+'실점 (자책 '+ps.er+')':'')+'</div>';
+        }
+        if(!mpBat.length&&!mpPit.length)
+          h+='<div class="cal-sum-stat" style="color:var(--txt2)">이 경기 기록 없음</div>';
+      }
+    } else {
+      h+='<div class="cal-sum-stat" style="color:var(--txt2);font-size:12px">설정에서 대표 선수를 지정하면 개인 기록이 표시됩니다.</div>';
+    }
+    h+='</div>';
+  }
   h+='</div>';
 
   const be=S.blog.filter(e=>e.gid===selGid);
@@ -690,8 +786,17 @@ function rStats(){
     h+='<div class="seclbl">🏏 타자 기본 기록 <span style="font-size:10px;font-weight:400;color:var(--txt2)">— 이름 탭 → 스프레이 차트</span></div>'
       +'<div class="statwrap"><table><thead><tr>'
       +'<th style="text-align:left;min-width:62px">선수</th>'
-      +'<th>PA</th><th>AB</th><th>H</th><th>2B</th><th>3B</th>'
-      +'<th style="color:#fca5a5">HR</th><th>RBI</th><th>R</th><th>BB</th><th>K</th><th>SB</th>'
+      +'<th class="sth" onclick="showStatInfo(\'PA\')">PA</th>'
+      +'<th class="sth" onclick="showStatInfo(\'AB\')">AB</th>'
+      +'<th class="sth" onclick="showStatInfo(\'H\')">H</th>'
+      +'<th class="sth" onclick="showStatInfo(\'2B\')">2B</th>'
+      +'<th class="sth" onclick="showStatInfo(\'3B\')">3B</th>'
+      +'<th class="sth" onclick="showStatInfo(\'HR\')" style="color:#fca5a5">HR</th>'
+      +'<th class="sth" onclick="showStatInfo(\'RBI\')">RBI</th>'
+      +'<th class="sth" onclick="showStatInfo(\'R\')">R</th>'
+      +'<th class="sth" onclick="showStatInfo(\'BB\')">BB</th>'
+      +'<th class="sth" onclick="showStatInfo(\'K\')">K</th>'
+      +'<th class="sth" onclick="showStatInfo(\'SB\')">SB</th>'
       +'</tr></thead><tbody>';
     bs.forEach(s=>{
       const sel=S.sprayPlayer===s.name;
@@ -705,30 +810,60 @@ function rStats(){
     });
     h+='</tbody></table></div>';
     if(S.sprayPlayer)h+=rSprayChart(S.sprayPlayer);
-    h+='<div class="seclbl">📊 타자 세이버매트릭스</div>'
-      +'<div class="statwrap"><table><thead><tr>'
-      +'<th style="text-align:left;min-width:62px">선수</th>'
-      +'<th title="타율">AVG</th><th title="출루율">OBP</th><th title="장타율">SLG</th>'
-      +'<th title="출루+장타">OPS</th><th title="가중출루율">wOBA</th>'
-      +'<th title="팀평균=100">wRC+</th><th title="순수장타율">ISO</th>'
-      +'<th title="인플레이타율">BABIP</th><th title="볼넷비율">BB%</th>'
-      +'<th title="삼진비율">K%</th><th title="볼삼비">BB/K</th>'
-      +'<th title="WAR 근사치">WAR</th>'
-      +'</tr></thead><tbody>';
-    bs.forEach(s=>{
-      h+='<tr>'
-        +'<td style="text-align:left;font-weight:700">'+s.name+'</td>'
-        +'<td>'+s.avg.toFixed(3)+'</td><td>'+s.obp.toFixed(3)+'</td><td>'+s.slg.toFixed(3)+'</td>'
-        +'<td class="hi" style="font-weight:700">'+s.ops.toFixed(3)+'</td>'
-        +'<td style="color:#7c3aed;font-weight:600">'+s.woba.toFixed(3)+'</td>'
-        +'<td style="color:#7c3aed;font-weight:700">'+s.wrc_plus+'</td>'
-        +'<td>'+s.iso.toFixed(3)+'</td><td>'+s.babip.toFixed(3)+'</td>'
-        +'<td>'+(s.bbp*100).toFixed(1)+'%</td><td>'+(s.kp*100).toFixed(1)+'%</td>'
-        +'<td>'+(s.bbk>=99?'∞':s.bbk.toFixed(2))+'</td>'
-        +'<td style="font-weight:700;color:'+(s.war>=2?'#15803d':s.war>=0?'var(--navy)':'var(--red)')+'">'+s.war.toFixed(1)+'</td>'
-        +'</tr>';
+    h+='<div class="seclbl">📊 타자 세이버매트릭스 <span style="font-size:10px;font-weight:400;color:var(--txt2)">— 지표 탭하면 설명 · MLB 기준 색상</span></div>';
+    // myPlayer 우선 정렬
+    const sortedBs=S.myPlayer?[...bs].sort((a,b)=>(b.no===S.myPlayer?1:0)-(a.no===S.myPlayer?1:0)):bs;
+    sortedBs.forEach(function(s){
+      const isMy=S.myPlayer&&s.no===S.myPlayer;
+      const heroData=[
+        {key:'OPS',val:s.ops,fmt:s.ops.toFixed(3)},
+        {key:'wRC+',val:s.wrc_plus,fmt:String(s.wrc_plus)},
+        {key:'WAR',val:s.war,fmt:s.war.toFixed(1)},
+      ];
+      const detailData=[
+        {key:'AVG',val:s.avg,fmt:s.avg.toFixed(3)},
+        {key:'OBP',val:s.obp,fmt:s.obp.toFixed(3)},
+        {key:'SLG',val:s.slg,fmt:s.slg.toFixed(3)},
+        {key:'wOBA',val:s.woba,fmt:s.woba.toFixed(3)},
+        {key:'ISO',val:s.iso,fmt:s.iso.toFixed(3)},
+        {key:'BABIP',val:s.babip,fmt:s.babip.toFixed(3)},
+        {key:'BB%',val:s.bbp,fmt:(s.bbp*100).toFixed(1)+'%'},
+        {key:'K%',val:s.kp,fmt:(s.kp*100).toFixed(1)+'%'},
+        {key:'BB/K',val:s.bbk>=99?0.99:s.bbk,fmt:s.bbk>=99?'∞':s.bbk.toFixed(2)},
+      ];
+      h+='<div style="margin:0 12px 12px;background:var(--card);border:'+(isMy?'2px solid var(--navy)':'1px solid var(--bdr)')+';border-radius:var(--rl);overflow:hidden">';
+      // 카드 헤더
+      h+='<div style="padding:9px 13px;background:'+(isMy?'#EBF0FB':'var(--bg2)')+';display:flex;align-items:center;justify-content:space-between">';
+      h+='<div style="display:flex;align-items:center;gap:7px">';
+      if(isMy)h+='<span style="background:var(--navy);color:#fff;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">대표</span>';
+      h+='<span style="font-size:14px;font-weight:700;color:var(--txt)">'+s.name+'</span>';
+      h+='</div>';
+      h+='<span style="font-size:11px;color:var(--txt2)">'+s.pa+'PA · '+s.g+'G</span>';
+      h+='</div>';
+      // 핵심 지표 3칸
+      h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--bdr);border-top:1px solid var(--bdr)">';
+      heroData.forEach(function(d){
+        var t=statTier(d.key,d.val),st=tierStyle(t);
+        h+='<div onclick="showStatInfo(\''+d.key+'\')" style="background:'+st.bg+';padding:13px 6px;text-align:center;cursor:pointer">';
+        h+='<div style="font-size:10px;font-weight:700;color:'+st.fc+';margin-bottom:5px;letter-spacing:.03em">'+d.key+'</div>';
+        h+='<div style="font-size:22px;font-weight:800;color:'+st.fc+'">'+d.fmt+'</div>';
+        h+='<div style="font-size:10px;color:'+st.fc+';margin-top:3px;font-weight:600">'+st.mark+(t==='good'?' 좋음':t==='bad'?' 낮음':' 보통')+'</div>';
+        h+='</div>';
+      });
+      h+='</div>';
+      // 세부 지표 9칸 (3x3)
+      h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--bdr);border-top:1px solid var(--bdr)">';
+      detailData.forEach(function(d){
+        var t=statTier(d.key,d.val),st=tierStyle(t);
+        h+='<div onclick="showStatInfo(\''+d.key+'\')" style="background:'+st.bg+';padding:10px 4px;text-align:center;cursor:pointer">';
+        h+='<div style="font-size:10px;font-weight:600;color:var(--txt2);margin-bottom:3px">'+d.key+'</div>';
+        h+='<div style="font-size:16px;font-weight:700;color:'+st.fc+'">'+d.fmt+'</div>';
+        h+='<div style="font-size:9px;color:'+st.fc+';margin-top:2px">'+st.mark+'</div>';
+        h+='</div>';
+      });
+      h+='</div>';
+      h+='</div>';
     });
-    h+='</tbody></table></div>';
   }
   if(ps.length){
     h+='<div class="seclbl">⚾ 투수 기본 기록</div>'
@@ -748,12 +883,16 @@ function rStats(){
         +'</tr>';
     });
     h+='</tbody></table></div>';
-    h+='<div class="seclbl">📈 투수 세이버매트릭스</div>'
+    h+='<div class="seclbl">📈 투수 세이버매트릭스 <span style="font-size:10px;font-weight:400;color:var(--txt2)">— 지표 탭하면 설명 표시</span></div>'
       +'<div class="statwrap"><table class="pit"><thead><tr>'
       +'<th style="text-align:left;min-width:62px">선수</th>'
-      +'<th title="평균자책점">ERA</th><th title="이닝당출루">WHIP</th>'
-      +'<th title="수비무관ERA">FIP</th><th title="9이닝탈삼진">K/9</th>'
-      +'<th title="9이닝볼넷">BB/9</th><th title="삼진비율">K%</th><th title="볼넷비율">BB%</th>'
+      +'<th class="sth" onclick="showStatInfo(\'ERA\')">ERA</th>'
+      +'<th class="sth" onclick="showStatInfo(\'WHIP\')">WHIP</th>'
+      +'<th class="sth" onclick="showStatInfo(\'FIP\')">FIP</th>'
+      +'<th class="sth" onclick="showStatInfo(\'K/9\')">K/9</th>'
+      +'<th class="sth" onclick="showStatInfo(\'BB/9\')">BB/9</th>'
+      +'<th class="sth" onclick="showStatInfo(\'pitK%\')">K%</th>'
+      +'<th class="sth" onclick="showStatInfo(\'pitBB%\')">BB%</th>'
       +'</tr></thead><tbody>';
     ps.forEach(s=>{
       h+='<tr>'
@@ -913,6 +1052,14 @@ function rSettings(){
     +'<button class="syncbig" onclick="doSync()" '+((!S.scriptUrl||S.syncing||pc===0)?'disabled':'')+'>☁ '+(S.syncing?'동기화 중...':'구글 시트로 전송 ('+pc+'건)')+'</button>'
     +'<button onclick="loadFromSheets()" '+((!S.scriptUrl||S.loading)?'disabled':'')+' style="width:100%;margin-top:8px;padding:13px;background:var(--bg2);color:var(--navy);border:1.5px solid var(--navy);border-radius:var(--r);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">☁ '+(S.loading?'불러오는 중...':'구글 시트에서 불러오기')+'</button>'
     +'<div style="margin-top:7px;font-size:11px;color:var(--txt2);line-height:1.6;background:var(--bg2);padding:8px 10px;border-radius:var(--r)">💡 <strong>새 기기에서 처음 접속할 때</strong> 사용하세요.</div>'
+    +'</div>'
+    +'<div class="cfgcard">'
+    +'<div class="cfgtitle">⭐ 대표 선수 지정</div>'
+    +'<div style="font-size:11px;color:var(--txt2);margin-bottom:10px;line-height:1.6">기록 탭 달력에 해당 선수의 타격/투수 기록을 표시합니다.</div>'
+    +'<select onchange="S.myPlayer=this.value||null;save();renderCt()" style="width:100%;height:40px;border-radius:var(--r);border:1px solid var(--bdr2);background:var(--bg2);color:var(--txt);font-size:14px;padding:0 10px;font-family:inherit;outline:none">'
+    +'<option value=""'+(S.myPlayer?'':' selected')+'>선택 안 함</option>'
+    +ROSTER.map(function(p){return'<option value="'+p.no+'"'+(S.myPlayer===p.no?' selected':'')+'>'+p.name+' (#'+p.no+' · '+(p.r==='b'?'타자':'투수')+')</option>';}).join('')
+    +'</select>'
     +'</div>'
     +'<div class="cfgcard" style="margin-bottom:0">'
     +'<div class="cfgtitle">👥 선수 관리</div>'
@@ -1124,6 +1271,62 @@ function confirmAddPlayer(type){
 }
 
 // ── 경기 모달 ─────────────────────────────────────────────
+const STAT_INFO={
+  // 타자 기본
+  PA:{name:'타석 (PA)',desc:'선수가 타석에 들어선 총 횟수예요. 안타든 삼진이든 볼넷이든, 한 번 타석에 서면 1이 올라갑니다.',tip:''},
+  AB:{name:'타수 (AB)',desc:'타석 중에서 안타나 아웃으로 기록된 횟수예요. 볼넷이나 몸에 맞는 공은 타수에 넣지 않아요.',tip:''},
+  H:{name:'안타 (H)',desc:'타격 후 아웃 없이 베이스에 나간 횟수예요. 1루타·2루타·3루타·홈런 모두 안타입니다.',tip:''},
+  '2B':{name:'2루타 (2B)',desc:'안타 중에서 2루까지 달려간 경우예요. 강하게 멀리 쳤을 때 나옵니다.',tip:''},
+  '3B':{name:'3루타 (3B)',desc:'안타 중에서 3루까지 달려간 경우예요. 빠른 발과 강한 타구가 있어야 해요.',tip:''},
+  HR:{name:'홈런 (HR)',desc:'공을 담장 밖으로 쳐내 베이스를 한 바퀴 다 돌아 득점하는 거예요. 가장 화려한 타격입니다!',tip:''},
+  RBI:{name:'타점 (RBI)',desc:'내가 친 안타나 희생타로 팀원이 홈을 밟아 득점했을 때 올라가요. 팀에 기여한 점수입니다.',tip:''},
+  R:{name:'득점 (R)',desc:'내가 직접 홈을 밟아 득점한 횟수예요. 베이스에 나간 뒤 팀원의 안타 등으로 홈까지 돌아오면 1점입니다.',tip:''},
+  BB:{name:'볼넷 (BB)',desc:'투수가 스트라이크 존을 벗어난 공을 4번 던지면, 타자는 1루로 그냥 나갈 수 있어요. 이게 볼넷입니다.',tip:'볼넷이 많다는 건 눈이 좋다는 뜻이에요!'},
+  K:{name:'삼진 (K)',desc:'스트라이크를 3번 당하면 아웃이에요. 이게 삼진입니다.',tip:'삼진이 적을수록 좋아요.'},
+  SB:{name:'도루 (SB)',desc:'투수가 공을 던지는 사이, 몰래 다음 베이스로 뛰어가 성공한 횟수예요.',tip:''},
+  // 타자 세이버매트릭스
+  AVG:{name:'타율 (AVG)',desc:'안타 수 ÷ 타수로 계산해요. 10번 타석 중 3번 안타를 치면 타율 0.300이에요.',tip:'0.300 이상이면 훌륭한 타자, 0.250 이상이면 평균 수준이에요.'},
+  OBP:{name:'출루율 (OBP)',desc:'안타·볼넷·몸에 맞는 공 등으로 베이스에 나가는 확률이에요. 타율보다 더 넓은 개념이에요.',tip:'0.350 이상이면 좋고, 0.320 이상이면 평균 수준이에요.'},
+  SLG:{name:'장타율 (SLG)',desc:'안타의 "질"을 숫자로 나타내요. 홈런(4점), 3루타(3점), 2루타(2점), 1루타(1점)로 계산합니다.',tip:'0.450 이상이면 장타력이 좋은 타자예요.'},
+  OPS:{name:'OPS (출루율+장타율)',desc:'출루율과 장타율을 더한 값이에요. 얼마나 잘 나가고, 나가면 얼마나 멀리 치는지를 합쳐서 봐요.',tip:'0.900 이상 ★ 최고, 0.800 이상 좋음, 0.700 이상 평균 수준이에요.'},
+  wOBA:{name:'가중출루율 (wOBA)',desc:'홈런과 1루타의 가치를 다르게 계산한 출루율이에요. 단순 타율보다 실제 공격 기여를 더 정확히 반영해요.',tip:'0.370 이상 ★ 최고, 0.320 이상 평균 수준이에요.'},
+  'wRC+':{name:'조정 득점 창출력 (wRC+)',desc:'우리 팀 전체 평균을 100으로 놓고, 선수가 얼마나 더 잘하는지 비교한 수치예요.',tip:'120이면 평균보다 20% 더 좋은 타자, 100이면 정확히 평균이에요.'},
+  ISO:{name:'순수 장타력 (ISO)',desc:'2루타·3루타·홈런만을 이용해 장타력만 측정해요. 1루타는 포함되지 않아요.',tip:'0.200 이상이면 장타력이 뛰어난 타자예요.'},
+  BABIP:{name:'인플레이 타율 (BABIP)',desc:'홈런과 삼진을 제외하고, 실제로 공이 땅에 닿았을 때 안타가 되는 비율이에요. 운의 영향도 어느 정도 받아요.',tip:'0.300 전후가 평균이에요. 너무 높거나 낮으면 운이 따랐거나 불운했을 수 있어요.'},
+  'BB%':{name:'볼넷 비율 (BB%)',desc:'타석 중 볼넷을 얻는 비율이에요. 높을수록 투수의 공을 잘 골라내는 눈이 좋은 타자예요.',tip:'10% 이상이면 선구안이 좋은 타자예요.'},
+  'K%':{name:'삼진 비율 (K%)',desc:'타석 중 삼진을 당하는 비율이에요. 낮을수록 공을 잘 맞추는 타자예요.',tip:'20% 이하면 좋고, 15% 이하면 접촉 능력이 뛰어나요.'},
+  'BB/K':{name:'볼넷/삼진 (BB/K)',desc:'볼넷 수를 삼진 수로 나눈 값이에요. 높을수록 나쁜 공은 골라내고 좋은 공은 잘 치는 타자예요.',tip:'0.50 이상이면 양호, 1.00 이상이면 매우 좋은 선구안이에요.'},
+  WAR:{name:'대체선수 대비 승리기여 (WAR)',desc:'이 선수 대신 평범한 선수를 쓸 때와 비교해, 팀 승리에 얼마나 더 기여하는지 나타내요.',tip:'2 이상이면 훌륭한 선수, 0 이상이면 평균 이상, 음수면 평균 이하예요.'},
+  // 투수 세이버매트릭스
+  ERA:{name:'평균자책점 (ERA)',desc:'투수가 9이닝을 던질 때 얼마나 많은 자책점(투수 책임 실점)을 허용하는지 나타내요.',tip:'2.00 이하 ★ 최고, 3.00 이하 좋음, 4.50 이하 평균 수준이에요.'},
+  WHIP:{name:'이닝당 출루 허용 (WHIP)',desc:'1이닝당 안타와 볼넷을 합쳐 몇 명을 내보내는지예요. 낮을수록 꽉 막는 좋은 투수예요.',tip:'1.00 이하 ★ 최고, 1.20 이하 좋음, 1.40 이하 평균 수준이에요.'},
+  FIP:{name:'수비 무관 ERA (FIP)',desc:'수비의 영향을 빼고 투수 실력만 측정해요. ERA와 차이가 크면 운이 작용한 것일 수 있어요.',tip:'ERA와 비슷하게 낮을수록 좋아요.'},
+  'K/9':{name:'9이닝당 삼진 (K/9)',desc:'9이닝을 던진다면 몇 개의 삼진을 잡을지 예측한 값이에요. 높을수록 삼진을 잘 잡는 투수예요.',tip:'9.0 이상이면 삼진 능력이 탁월한 투수예요.'},
+  'BB/9':{name:'9이닝당 볼넷 (BB/9)',desc:'9이닝에 몇 개의 볼넷을 줄지 예측한 값이에요. 낮을수록 제구력(정확도)이 좋은 투수예요.',tip:'2.0 이하면 제구가 매우 좋은 투수예요.'},
+  'pitK%':{name:'삼진 비율 (K%)',desc:'상대한 타자 중 삼진으로 잡은 비율이에요. 높을수록 공이 강력한 투수예요.',tip:'25% 이상이면 탈삼진 능력이 좋은 투수예요.'},
+  'pitBB%':{name:'볼넷 비율 (BB%)',desc:'상대한 타자 중 볼넷을 허용한 비율이에요. 낮을수록 제구력이 좋아요.',tip:'8% 이하면 제구가 안정적인 투수예요.'},
+};
+function showStatInfo(key){
+  const info=STAT_INFO[key];
+  if(!info)return;
+  document.getElementById('modal-root').innerHTML=
+    '<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal" style="padding-bottom:calc(24px + var(--sfb))">'
+    +'<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">'
+    +'<div>'
+    +'<div style="font-size:11px;font-weight:600;color:var(--txt2);letter-spacing:.05em;margin-bottom:4px">지표 설명</div>'
+    +'<div style="font-size:18px;font-weight:700;color:var(--txt)">'+info.name+'</div>'
+    +'</div>'
+    +'<button onclick="closeModal()" style="background:var(--bg2);border:none;border-radius:50%;width:32px;height:32px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--txt2);flex-shrink:0">✕</button>'
+    +'</div>'
+    +'<div style="background:var(--bg2);border-radius:var(--r);padding:14px 15px;margin-bottom:'+(info.tip?'12px':'0')+';">'
+    +'<p style="font-size:14px;color:var(--txt);line-height:1.75;margin:0">'+info.desc+'</p>'
+    +'</div>'
+    +(info.tip?'<div style="display:flex;align-items:flex-start;gap:8px;padding:10px 12px;background:#EBF0FB;border-radius:var(--r)">'
+      +'<span style="font-size:16px;line-height:1.4">💡</span>'
+      +'<p style="font-size:13px;color:var(--navy);line-height:1.6;margin:0">'+info.tip+'</p>'
+      +'</div>':'')
+    +'</div></div>';
+}
 function showGameModal(){
   const today=new Date();
   const dd=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
