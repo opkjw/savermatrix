@@ -592,7 +592,7 @@ function rLog(){
     return'<div class="empty">📋<br><br>기록이 없습니다.</div>';
 
   // 선택 경기
-  const selGid=S.logGameId||(S.game?S.game.id:allGames[0]&&allGames[0].id);
+  const selGid=S.logGameId;
 
   // 달력 표시 월 결정 (기본: 현재 년/월)
   const now=new Date();
@@ -629,13 +629,13 @@ function rLog(){
   for(var day=1;day<=daysInMon;day++){
     var ds=String(day).padStart(2,'0');
     var g=gameMap[ds];
-    var isSel=g&&g.id===selGid;
+    var isSel=g&&g.id===S.logGameId;
     var isOff=g&&(g.type||'O')==='O';
     var dow=new Date(calY,calM-1,day).getDay();
     var dc=dow===0?'#ef4444':dow===6?'#3b82f6':'var(--txt)';
     var isCurG=g&&S.game&&g.id===S.game.id;
     h+='<div class="cal-cell'+(g?' has-game':'')+(isSel?' selected':'')+'"'
-      +(g?' onclick="S.logGameId=\''+g.id+'\';S.calMonth=\''+calMon+'\';renderCt()"':'')+' >';
+      +(g?' onclick="var _gid=\''+g.id+'\';S.logGameId=(_gid===S.logGameId?null:_gid);S.calMonth=\''+calMon+'\';renderCt()"':'')+' >';
     h+='<span class="cal-day" style="color:'+dc+'">'+(isCurG?'<strong>'+day+'</strong>':day)+'</span>';
     if(g)h+='<span class="cal-dot" style="background:'+(isOff?'var(--navy)':'#16a34a')+'"></span>';
     h+='</div>';
@@ -646,46 +646,49 @@ function rLog(){
     +'<span><span class="cal-dot" style="background:#16a34a;display:inline-block"></span>연습경기</span>'
     +'</div>';
 
-  // 선택 경기 요약
-  const selGame=allGames.find(function(g){return g.id===selGid;});
-  if(selGame){
-    var sd=selGame.date||'';
-    var sdParts=sd.split('-');
-    var sdow=sd?['일','월','화','수','목','금','토'][new Date(parseInt(sdParts[0]),parseInt(sdParts[1])-1,parseInt(sdParts[2])).getDay()]:'';
-    var isOffSel=(selGame.type||'O')==='O';
-    var isCurSel=S.game&&S.game.id===selGid;
-    h+='<div class="cal-summary">';
-    h+='<div class="cal-sum-date">';
-    if(sd)h+=parseInt(sdParts[1])+'월 '+parseInt(sdParts[2])+'일 ('+sdow+') &nbsp;';
-    h+='G'+(selGame.no||'?')+' vs '+selGame.opp;
-    h+=' <span style="background:'+(isOffSel?'#EBF0FB':'#dcfce7')+';color:'+(isOffSel?'var(--navy)':'#15803d')+';border-radius:4px;padding:1px 8px;font-size:11px;font-weight:600">'+(isOffSel?'정식':'연습')+'</span>';
-    if(isCurSel)h+=' <span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 8px;font-size:11px;font-weight:700">진행중</span>';
-    h+='<button onclick="showEditGameModal(\''+selGid+'\')" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:3px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit;flex-shrink:0">✏ 수정</button>';
-    h+='</div>';
+  // 선택 경기 요약 (날짜 클릭 시만)
+  if(selGid){
+    const selGame=allGames.find(function(g){return g.id===selGid;});
+    if(selGame){
+      var sd=selGame.date||'';
+      var sdParts=sd.split('-');
+      var sdow=sd?['일','월','화','수','목','금','토'][new Date(parseInt(sdParts[0]),parseInt(sdParts[1])-1,parseInt(sdParts[2])).getDay()]:'';
+      var isOffSel=(selGame.type||'O')==='O';
+      var isCurSel=S.game&&S.game.id===selGid;
+      h+='<div class="cal-summary">';
+      h+='<div class="cal-sum-date">';
+      if(sd)h+=parseInt(sdParts[1])+'월 '+parseInt(sdParts[2])+'일 ('+sdow+') &nbsp;';
+      h+='vs '+selGame.opp;
+      h+=' <span style="background:'+(isOffSel?'#EBF0FB':'#dcfce7')+';color:'+(isOffSel?'var(--navy)':'#15803d')+';border-radius:4px;padding:1px 8px;font-size:11px;font-weight:600">'+(isOffSel?'정식':'연습')+'</span>';
+      if(isCurSel)h+=' <span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 8px;font-size:11px;font-weight:700">진행중</span>';
+      h+='<button onclick="showEditGameModal(\''+selGid+'\')" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:3px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit;flex-shrink:0">✏ 수정</button>';
+      h+='<button onclick="delGame(\''+selGid+'\')" style="background:none;border:1px solid #fca5a5;border-radius:var(--r);padding:3px 10px;font-size:11px;color:#dc2626;cursor:pointer;font-family:inherit;flex-shrink:0">🗑 삭제</button>';
+      h+='</div>';
 
-    // 대표 선수 기록
-    if(S.myPlayer){
-      var mp=ROSTER.find(function(x){return x.no===S.myPlayer;});
-      if(mp){
-        var mpBat=S.blog.filter(function(e){return e.gid===selGid&&e.pno===S.myPlayer;});
-        var mpPit=S.pit_bf.filter(function(e){return e.gid===selGid&&e.pno===S.myPlayer;});
-        h+='<div class="cal-sum-player">#'+mp.no+' '+mp.name+'</div>';
-        if(mpBat.length){
-          var bAB=0,bH=0,bRBI=0;
-          mpBat.forEach(function(e){var s=paS(e.oc);bAB+=s.ab;bH+=s.h;bRBI+=e.rbi||0;});
-          h+='<div class="cal-sum-stat">타격 · '+bAB+'타수 '+bH+'안타'+(bRBI?' · '+bRBI+'타점':'')+'</div>';
+      // 대표 선수 기록
+      if(S.myPlayer){
+        var mp=ROSTER.find(function(x){return x.no===S.myPlayer;});
+        if(mp){
+          var mpBat=S.blog.filter(function(e){return e.gid===selGid&&e.pno===S.myPlayer;});
+          var mpPit=S.pit_bf.filter(function(e){return e.gid===selGid&&e.pno===S.myPlayer;});
+          h+='<div class="cal-sum-player">#'+mp.no+' '+mp.name+'</div>';
+          if(mpBat.length){
+            var bAB=0,bH=0,bRBI=0;
+            mpBat.forEach(function(e){var s=paS(e.oc);bAB+=s.ab;bH+=s.h;bRBI+=e.rbi||0;});
+            h+='<div class="cal-sum-stat">타격 · '+bAB+'타수 '+bH+'안타'+(bRBI?' · '+bRBI+'타점':'')+'</div>';
+          }
+          if(mpPit.length){
+            var ps=calcPitStats(S.myPlayer,selGid);
+            h+='<div class="cal-sum-stat">투수 · '+ps.ipd+'이닝'+(ps.r?' · '+ps.r+'실점 (자책 '+ps.er+')':'')+'</div>';
+          }
+          if(!mpBat.length&&!mpPit.length)
+            h+='<div class="cal-sum-stat" style="color:var(--txt2)">이 경기 기록 없음</div>';
         }
-        if(mpPit.length){
-          var ps=calcPitStats(S.myPlayer,selGid);
-          h+='<div class="cal-sum-stat">투수 · '+ps.ipd+'이닝'+(ps.r?' · '+ps.r+'실점 (자책 '+ps.er+')':'')+'</div>';
-        }
-        if(!mpBat.length&&!mpPit.length)
-          h+='<div class="cal-sum-stat" style="color:var(--txt2)">이 경기 기록 없음</div>';
+      } else {
+        h+='<div class="cal-sum-stat" style="color:var(--txt2);font-size:12px">설정에서 대표 선수를 지정하면 개인 기록이 표시됩니다.</div>';
       }
-    } else {
-      h+='<div class="cal-sum-stat" style="color:var(--txt2);font-size:12px">설정에서 대표 선수를 지정하면 개인 기록이 표시됩니다.</div>';
+      h+='</div>';
     }
-    h+='</div>';
   }
   h+='</div>';
 
@@ -700,7 +703,7 @@ function rLog(){
       var pCnt=S.pit_bf.filter(function(e){return e.gid===g.id;}).length;
       h+='<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid #fcd34d">';
       h+='<div style="flex:1">';
-      h+='<div style="font-size:13px;font-weight:600;color:var(--txt)">G'+(g.no||'?')+' vs '+(g.opp||'?')+'</div>';
+      h+='<div style="font-size:13px;font-weight:600;color:var(--txt)">vs '+(g.opp||'?')+'</div>';
       h+='<div style="font-size:11px;color:var(--txt2)">타석 '+bCnt+' · 투수 '+pCnt+'타자</div>';
       h+='</div>';
       h+='<button onclick="showEditGameModal(\''+g.id+'\')" style="background:var(--navy);color:#fff;border:none;border-radius:var(--r);padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">날짜 입력</button>';
@@ -709,6 +712,13 @@ function rLog(){
     h+='</div>';
   }
 
+  if(!selGid){
+    // 날짜 미선택: 월간 전체 기록 뷰
+    h+=rLogMonthly(allGames,calMon,calY,calM);
+    return h;
+  }
+
+  // 날짜 선택: 해당 경기 상세 기록
   const be=S.blog.filter(e=>e.gid===selGid);
   const pbf=S.pit_bf.filter(e=>e.gid===selGid);
   const pr=S.pit_runs.filter(e=>e.gid===selGid);
@@ -772,6 +782,95 @@ function rLog(){
       h+='</div></div>';
     });
   }
+  return h;
+}
+
+// 월간 전체 기록 뷰
+function rLogMonthly(allGames,calMon,calY,calM){
+  const prevMon=calM===1?(calY-1)+'-12':calY+'-'+String(calM-1).padStart(2,'0');
+  const monGames=allGames.filter(g=>g.date&&g.date.slice(0,7)===calMon);
+  const prevGames=allGames.filter(g=>g.date&&g.date.slice(0,7)===prevMon);
+  let h='';
+
+  // 대표 선수 이번달 vs 지난달 주요 타격 지표 3가지
+  if(S.myPlayer){
+    const myNo=Number(S.myPlayer);
+    const curGids=new Set(monGames.map(g=>g.id));
+    const prevGids=new Set(prevGames.map(g=>g.id));
+    const curBlog=S.blog.filter(e=>curGids.has(e.gid)&&Number(e.pno)===myNo);
+    const prevBlog=S.blog.filter(e=>prevGids.has(e.gid)&&Number(e.pno)===myNo);
+    function calcMS(entries){
+      var ab=0,h2=0,bb=0,hbp=0,sf=0,d2=0,d3=0,hr=0;
+      entries.forEach(function(e){var s=paS(e.oc);ab+=s.ab;h2+=s.h;bb+=s.bb;hbp+=s.hbp;sf+=s.sf;d2+=s.d2;d3+=s.d3;hr+=s.hr;});
+      var avg=ab>0?h2/ab:null;
+      var obp=(ab+bb+hbp+sf)>0?(h2+bb+hbp)/(ab+bb+hbp+sf):null;
+      var slg=ab>0?(h2+d2+2*d3+3*hr)/ab:null;
+      var ops=(obp!==null&&slg!==null)?obp+slg:null;
+      return{avg:avg,obp:obp,ops:ops,pa:entries.length};
+    }
+    const cur=calcMS(curBlog),prev=calcMS(prevBlog);
+    const mp=ROSTER.find(function(x){return x.no===myNo;});
+    const mpName=mp?mp.name:'#'+myNo;
+    const prevMonLabel=(prevMon.slice(0,4)===String(calY)?'':prevMon.slice(0,4)+'년 ')+parseInt(prevMon.slice(5,7))+'월';
+    if(cur.pa>0||prev.pa>0){
+      h+='<div style="margin:8px 12px 4px;background:var(--card);border:1px solid var(--bdr);border-radius:var(--rl);padding:14px">';
+      h+='<div style="font-size:12px;font-weight:700;color:var(--txt);margin-bottom:10px">'+mpName+' '+calM+'월 주요 타격지표 <span style="font-weight:400;color:var(--txt2);font-size:11px">vs '+prevMonLabel+'</span></div>';
+      h+='<div style="display:flex;gap:8px">';
+      var stats2=[
+        {key:'AVG',cur:cur.avg,prev:prev.avg},
+        {key:'OBP',cur:cur.obp,prev:prev.obp},
+        {key:'OPS',cur:cur.ops,prev:prev.ops}
+      ];
+      stats2.forEach(function(st){
+        var cf=function(v){return v!==null?v.toFixed(3):'-';};
+        var diff=(st.cur!==null&&st.prev!==null)?st.cur-st.prev:null;
+        var arrow=diff===null?'':diff>0.001?'↑':diff<-0.001?'↓':'→';
+        var arrowC=diff===null?'var(--txt2)':diff>0.001?'#16a34a':diff<-0.001?'#dc2626':'var(--txt2)';
+        h+='<div style="flex:1;text-align:center;background:var(--bg2);border-radius:var(--r);padding:10px 6px">';
+        h+='<div style="font-size:10px;color:var(--txt2);margin-bottom:4px">'+st.key+'</div>';
+        h+='<div style="font-size:18px;font-weight:700;color:var(--navy)">'+cf(st.cur)+'</div>';
+        h+='<div style="font-size:11px;color:'+arrowC+';margin-top:3px">'+arrow+' '+cf(st.prev)+'</div>';
+        h+='</div>';
+      });
+      h+='</div></div>';
+    }
+  }
+
+  // 이 달의 경기 목록
+  if(!monGames.length){
+    h+='<div class="empty" style="padding:24px">'+calM+'월 경기 기록이 없습니다.</div>';
+    return h;
+  }
+  h+='<div class="seclbl">'+calY+'년 '+calM+'월 경기 목록</div>';
+  monGames.forEach(function(g){
+    var sd=g.date||'';
+    var sdParts=sd.split('-');
+    var sdow=sd&&sdParts.length===3?['일','월','화','수','목','금','토'][new Date(parseInt(sdParts[0]),parseInt(sdParts[1])-1,parseInt(sdParts[2])).getDay()]:'';
+    var isOff=(g.type||'O')==='O';
+    h+='<div class="logitem" style="cursor:pointer" onclick="S.logGameId=\''+g.id+'\';S.calMonth=\''+calMon+'\';renderCt()">';
+    h+='<div style="min-width:0;flex:1">';
+    h+='<div style="font-size:13px;font-weight:600;color:var(--txt)">';
+    if(sd)h+=parseInt(sdParts[2])+'일('+sdow+') ';
+    h+='vs '+g.opp;
+    h+=' <span style="background:'+(isOff?'#EBF0FB':'#dcfce7')+';color:'+(isOff?'var(--navy)':'#15803d')+';border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">'+(isOff?'정식':'연습')+'</span>';
+    h+='</div>';
+    if(S.myPlayer){
+      var myNo2=Number(S.myPlayer);
+      var mpBat2=S.blog.filter(function(e){return e.gid===g.id&&Number(e.pno)===myNo2;});
+      var mpPit2=S.pit_bf.filter(function(e){return e.gid===g.id&&Number(e.pno)===myNo2;});
+      var parts=[];
+      if(mpBat2.length){
+        var bAB2=0,bH2=0,bRBI2=0;
+        mpBat2.forEach(function(e){var s=paS(e.oc);bAB2+=s.ab;bH2+=s.h;bRBI2+=e.rbi||0;});
+        parts.push(bAB2+'타수 '+bH2+'안타'+(bRBI2?' · '+bRBI2+'타점':''));
+      }
+      if(mpPit2.length){var ps2=calcPitStats(myNo2,g.id);parts.push(ps2.ipd+'이닝');}
+      if(parts.length)h+='<div style="font-size:11px;color:var(--txt2);margin-top:2px">'+parts.join(' / ')+'</div>';
+    }
+    h+='</div>';
+    h+='<span style="color:var(--txt2);font-size:18px;padding-left:8px">›</span>';
+    h+='</div>';
+  });
   return h;
 }
 
@@ -1160,6 +1259,23 @@ function del(type,id){
   if(type==='b')S.blog=S.blog.filter(e=>e.id!==id);
   else if(type==='pbf')S.pit_bf=S.pit_bf.filter(e=>e.id!==id);
   S.syncedIds.delete(id);save();renderCt();
+}
+function delGame(gid){
+  const g=S.games.find(x=>x.id===gid);
+  if(!g)return;
+  const bCnt=S.blog.filter(e=>e.gid===gid).length;
+  const pCnt=S.pit_bf.filter(e=>e.gid===gid).length;
+  const label='vs '+(g.opp||'?')+(g.date?' ('+g.date+')':'');
+  var msg='경기를 삭제하시겠습니까?\n\n'+label;
+  if(bCnt||pCnt)msg+='\n\n타자 기록 '+bCnt+'건, 투수 기록 '+pCnt+'건도 함께 삭제됩니다.';
+  if(!confirm(msg))return;
+  S.games=S.games.filter(x=>x.id!==gid);
+  S.blog=S.blog.filter(e=>e.gid!==gid);
+  S.pit_bf=S.pit_bf.filter(e=>e.gid!==gid);
+  S.pit_runs=S.pit_runs.filter(e=>e.gid!==gid);
+  if(S.logGameId===gid)S.logGameId=null;
+  if(S.game&&S.game.id===gid)S.game=null;
+  save();toast(label+' 삭제됨','ok');r();
 }
 
 // ── 기록 편집 ─────────────────────────────────────────────
