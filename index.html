@@ -1623,20 +1623,41 @@ async function loadFromSheets(){
     const res=await fetch(S.scriptUrl+'?action=fetch');
     const data=await res.json();
     if(data.status!=='ok')throw new Error(data.message||'오류');
-    let added=0;
-    const exIds=new Set([...S.blog.map(e=>e.id),...S.pit_bf.map(e=>e.id),...S.pit_runs.map(e=>e.id)]);
-    (data.bat_log||[]).forEach(e=>{if(!exIds.has(e.id)){S.blog.push(e);exIds.add(e.id);added++;}});
-    (data.pit_bf||[]).forEach(e=>{if(!exIds.has(e.id)){S.pit_bf.push(e);exIds.add(e.id);added++;}});
-    (data.pit_runs||[]).forEach(e=>{if(!exIds.has(e.id)){S.pit_runs.push(e);exIds.add(e.id);added++;}});
-    (data.games||[]).forEach(g=>{if(!S.games.find(x=>x.id===g.id))S.games.push(g);});
+
+    // 서버가 권위(source of truth): 서버 데이터로 교체
+    // 단, 아직 동기화 안 된 로컬 전용 항목은 보존
+    const unsyncedGames=S.games.filter(g=>!S.syncedIds.has('g_'+g.id));
+    const unsyncedBlog=S.blog.filter(e=>!S.syncedIds.has(e.id));
+    const unsyncedPitBf=S.pit_bf.filter(e=>!S.syncedIds.has(e.id));
+    const unsyncedPitRuns=S.pit_runs.filter(e=>!S.syncedIds.has(e.id));
+
+    const svrGameIds=new Set((data.games||[]).map(g=>g.id));
+    const svrBlogIds=new Set((data.bat_log||[]).map(e=>e.id));
+    const svrPitBfIds=new Set((data.pit_bf||[]).map(e=>e.id));
+    const svrPitRunIds=new Set((data.pit_runs||[]).map(e=>e.id));
+
+    // 서버 데이터 + 로컬 미동기화 항목 병합 (서버에 이미 있는 건 제외)
+    S.games=[...(data.games||[]),...unsyncedGames.filter(g=>!svrGameIds.has(g.id))];
+    S.blog=[...(data.bat_log||[]),...unsyncedBlog.filter(e=>!svrBlogIds.has(e.id))];
+    S.pit_bf=[...(data.pit_bf||[]),...unsyncedPitBf.filter(e=>!svrPitBfIds.has(e.id))];
+    S.pit_runs=[...(data.pit_runs||[]),...unsyncedPitRuns.filter(e=>!svrPitRunIds.has(e.id))];
+
     if(data.roster&&data.roster.length>0){ROSTER.splice(0,ROSTER.length,...data.roster);S.rosterDirty=false;}
-    S.blog.forEach(e=>S.syncedIds.add(e.id));
-    S.pit_bf.forEach(e=>S.syncedIds.add(e.id));
-    S.pit_runs.forEach(e=>S.syncedIds.add(e.id));
-    S.games.forEach(g=>S.syncedIds.add('g_'+g.id));
+
+    // syncedIds 재구성: 서버에서 온 항목만 synced로 표시
+    S.syncedIds=new Set();
+    (data.games||[]).forEach(g=>S.syncedIds.add('g_'+g.id));
+    (data.bat_log||[]).forEach(e=>S.syncedIds.add(e.id));
+    (data.pit_bf||[]).forEach(e=>S.syncedIds.add(e.id));
+    (data.pit_runs||[]).forEach(e=>S.syncedIds.add(e.id));
+
+    // 서버에서 삭제된 gid는 로컬 deletedGids에서도 제거 (이미 반영됨)
+    S.deletedGids=(S.deletedGids||[]).filter(gid=>svrGameIds.has(gid));
+
     save();
+    const svrTotal=(data.games||[]).length+(data.bat_log||[]).length+(data.pit_bf||[]).length+(data.pit_runs||[]).length;
     const rMsg=data.roster&&data.roster.length>0?' / 선수 '+data.roster.length+'명':'';
-    toast(added>0?'✓ '+added+'건 불러오기 완료'+rMsg:'✓ 이미 최신 데이터'+rMsg,'ok');
+    toast('✓ 불러오기 완료 ('+svrTotal+'건)'+rMsg,'ok');
   }catch(e){toast('불러오기 실패 — URL 확인','err');console.error(e);}
   S.loading=false;r();
 }
