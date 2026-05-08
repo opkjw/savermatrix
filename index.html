@@ -423,12 +423,17 @@ function renderLogin(){
   ol.style.display='flex';
   ol.innerHTML='<div class="pin-wrap">'
     +'<div class="pin-logo">⚾</div>'
-    +'<div class="pin-title">야구 기록</div>'
-    +(S.schoolName?'<div class="pin-sub">'+esc(S.schoolName)+'</div>':'<div class="pin-sub">PIN을 입력하세요</div>')
+    +'<div class="pin-title">'+(S.schoolName?esc(S.schoolName)+' 야구':'우리아이 야구 기록')+'</div>'
+    +'<div class="pin-sub">코치/감독 또는 학부모 PIN을 입력하세요</div>'
     +'<input class="pin-input" id="pin-input" type="password" inputmode="numeric" maxlength="8" placeholder="PIN 입력" autocomplete="off" onkeydown="if(event.key===&apos;Enter&apos;)doLogin()">'
     +'<div class="pin-err" id="pin-err"></div>'
-    +'<button class="pin-btn primary" onclick="doLogin()">확인</button>'
-    +'<button class="pin-btn secondary" onclick="localLogin()">서버 없이 시작 (관리자)</button>'
+    +'<button class="pin-btn primary" onclick="doLogin()">로그인</button>'
+    +'<div style="display:flex;align-items:center;gap:8px;margin:4px 0 10px">'
+    +'<div style="flex:1;height:1px;background:rgba(255,255,255,.15)"></div>'
+    +'<span style="font-size:11px;color:rgba(255,255,255,.35)">또는</span>'
+    +'<div style="flex:1;height:1px;background:rgba(255,255,255,.15)"></div>'
+    +'</div>'
+    +'<button class="pin-btn secondary" onclick="localLogin()" style="font-size:13px;padding:12px">PIN 없이 관리자로 시작</button>'
     +'</div>';
   setTimeout(function(){var el=document.getElementById('pin-input');if(el)el.focus();},100);
 }
@@ -468,6 +473,7 @@ function doLogout(){
 // ── 렌더 ─────────────────────────────────────────────────
 function renderGHdr(){
   const pc=pendingCount();
+  const isFirstVisit=!S.scriptUrl&&S.games.length===0;
   document.getElementById('ghdr').innerHTML=S.game
     ?('<div class="ghdr"><div><div class="gh-title">vs '+esc(S.game.opp)+'</div>'
       +'<div class="gh-sub">'+esc(S.game.date)+' · G'+String(S.game.no).padStart(2,'0')
@@ -478,15 +484,17 @@ function renderGHdr(){
       +'<button class="gh-btn" onclick="showGameModal()" style="background:rgba(255,255,255,.15)">변경</button>'
       +'<button class="gh-btn" onclick="endGame()" style="background:#c0392b;font-weight:700">■ 종료</button>'
       +'</div></div>')
-    :('<div class="ghdr"><div><div class="gh-title">⚾ 우리아이 야구 기록 Ball Matrix</div>'
-      +'<div class="gh-sub">경기를 시작하세요</div></div>'
+    :('<div class="ghdr"><div>'
+      +'<div class="gh-title">⚾ '+(S.schoolName?esc(S.schoolName)+' 야구':'우리아이 야구 기록')+'</div>'
+      +'<div class="gh-sub">'+(isFirstVisit?'👇 설정 탭에서 초기 설정을 시작하세요':'경기를 시작하세요')+'</div>'
+      +'</div>'
       +'<div class="gh-right">'
-      +'<button class="gh-icon" onclick="setTab(4)">'+(pc>0?'☁<div class="pdot"></div>':'⚙')+'</button>'
-      +'<button class="gh-btn" onclick="showGameModal()">+ 경기 시작</button>'
+      +(pc>0?'<button class="gh-icon" style="position:relative" onclick="setTab(4)">☁<div class="pdot"></div></button>':'')
+      +(isFirstVisit?'<button class="gh-btn" style="background:#f59e0b;color:#78350f;font-weight:700" onclick="setTab(4)">⚙ 초기 설정</button>':'<button class="gh-btn" onclick="showGameModal()">+ 경기 시작</button>')
       +'</div></div>');
 }
 function renderTabs(){
-  const ts=[{e:'⚾',l:'타자입력'},{e:'🎯',l:'투수입력'},{e:'📋',l:'기록'},{e:'📊',l:'통계'}];
+  const ts=[{e:'⚾',l:'타자입력'},{e:'🎯',l:'투수입력'},{e:'📋',l:'기록'},{e:'📊',l:'통계'},{e:'⚙',l:'설정'}];
   document.getElementById('tbr').innerHTML=ts.map((t,i)=>'<button class="tab'+(S.tab===i?' on':'')+'" onclick="setTab('+i+')">'
     +'<span style="display:block;font-size:22px;margin-bottom:2px">'+t.e+'</span>'+t.l+'</button>').join('');
 }
@@ -1251,14 +1259,41 @@ function rSettings(){
   const pc=pendingCount();
   const lastStr=S.lastSync?new Date(S.lastSync).toLocaleString('ko',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'없음';
   const isAdmin=S.role==='admin'||!S.role;
-  const roleBadge=S.scriptUrl
-    ?'<div style="display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--bdr);border-radius:var(--rl);padding:11px 14px;margin-bottom:10px">'
-      +'<div style="font-size:12px;color:var(--txt2)">접속 모드 <span style="font-weight:700;color:'+(isAdmin?'var(--navy)':'#15803d')+';margin-left:6px">'+(isAdmin?'👨‍💼 코치 / 감독':'👨‍👩‍👦 학부모')+'</span></div>'
-      +'<button onclick="doLogout()" style="font-size:12px;color:var(--txt2);background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:5px 12px;min-height:34px;cursor:pointer;font-family:inherit">로그아웃</button>'
-      +'</div>'
+  const isFirstVisit=!S.scriptUrl&&S.games.length===0;
+
+  // ── 역할 배지 (role 설정 여부와 무관하게 항상 표시, URL 없으면 로그아웃 대신 안내)
+  const roleBadge='<div style="display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--bdr);border-radius:var(--rl);padding:11px 14px;margin-bottom:10px">'
+    +'<div style="font-size:12px;color:var(--txt2)">접속 모드 <span style="font-weight:700;color:'+(isAdmin?'var(--navy)':'#15803d')+';margin-left:6px">'+(isAdmin?'👨‍💼 코치 / 감독':'👨‍👩‍👦 학부모')+'</span></div>'
+    +(S.scriptUrl
+      ?'<button onclick="doLogout()" style="font-size:12px;color:var(--txt2);background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:5px 12px;min-height:34px;cursor:pointer;font-family:inherit">로그아웃</button>'
+      :'<span style="font-size:11px;color:var(--txt2)">URL 연결 시 PIN 로그인</span>')
+    +'</div>';
+
+  // ── 첫 방문 가이드 (관리자 + URL 미설정)
+  const setupGuide=isFirstVisit
+    ?'<div class="cfgcard" style="background:linear-gradient(135deg,#EBF0FB 0%,#dbeafe 100%);border-color:#93c5fd;margin-bottom:10px">'
+      +'<div class="cfgtitle" style="color:var(--navy)">🚀 시작 가이드</div>'
+      +'<div style="font-size:12px;color:#1e3a8a;line-height:1">'
+      +(function(){
+        var steps=[
+          ['1','학교/팀 이름 입력 (아래)'],
+          ['2','선수 관리에서 실제 선수 명단으로 교체'],
+          ['3','구글 시트 URL 연결 → PIN 설정 활성화'],
+          ['4','Code.gs에서 관리자·학부모 PIN 번호 설정'],
+          ['5','로그아웃 후 PIN 로그인 테스트'],
+        ];
+        return steps.map(function(s){
+          return'<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid rgba(30,58,138,.1)">'
+            +'<span style="min-width:22px;height:22px;background:var(--navy);color:#fff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">'+s[0]+'</span>'
+            +'<span>'+s[1]+'</span></div>';
+        }).join('');
+      }())
+      +'</div></div>'
     :'';
+
   return'<div class="cfgwrap">'
     +roleBadge
+    +setupGuide
     +'<div class="cfgcard">'
     +'<div class="cfgtitle">🏫 학교 / 팀 정보</div>'
     +(isAdmin
@@ -1268,12 +1303,15 @@ function rSettings(){
     +(isAdmin
       ?'<div class="cfgcard">'
         +'<div class="cfgtitle">☁ 구글 시트 연동</div>'
-        +'<div style="font-size:11px;color:var(--txt2);margin-bottom:8px;line-height:1.7">Apps Script 웹 앱 URL을 입력하세요.</div>'
+        +(S.scriptUrl
+          ?'<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;font-size:11px;color:#15803d;background:#f0fdf4;border-radius:var(--r);padding:7px 10px">✅ <span>URL 연결됨 — 로그아웃 후 PIN 로그인을 테스트해보세요</span></div>'
+          :'<div style="font-size:11px;color:var(--txt2);margin-bottom:8px;line-height:1.7">Apps Script 웹 앱 URL을 입력하면 다기기 동기화 및 PIN 로그인이 활성화됩니다.</div>')
         +'<input class="cfginput" id="url-input" placeholder="https://script.google.com/macros/s/.../exec" value="'+esc(S.scriptUrl)+'" autocomplete="off" spellcheck="false">'
-        +'<div style="font-size:11px;color:var(--txt2);margin:4px 0 8px;line-height:1.7">🔑 인증 토큰 <span style="font-weight:400">(Code.gs의 AUTH_TOKEN과 동일하게 입력)</span></div>'
+        +'<div style="font-size:11px;color:var(--txt2);margin:4px 0 8px;line-height:1.7">🔑 인증 토큰 <span style="font-weight:400">(Code.gs의 AUTH_TOKEN과 동일)</span></div>'
         +'<input class="cfginput" id="token-input" placeholder="비워두면 인증 없이 동작" value="'+esc(S.scriptToken)+'" autocomplete="off" spellcheck="false" type="password">'
-        +'<div class="cfgrow"><button class="cfgbtn" onclick="testConn()">🔌 연결 테스트</button><button class="cfgbtn pr" onclick="saveUrl()">✓ URL/토큰 저장</button></div>'
+        +'<div class="cfgrow"><button class="cfgbtn" onclick="testConn()">🔌 연결 테스트</button><button class="cfgbtn pr" onclick="saveUrl()">✓ 저장</button></div>'
         +'<div id="connst" class="connst"></div>'
+        +(S.scriptUrl?'<button onclick="doLogout()" style="width:100%;margin-top:8px;padding:11px;background:none;border:1px solid var(--bdr);border-radius:var(--r);font-size:13px;color:var(--txt2);cursor:pointer;font-family:inherit">🔓 로그아웃 → PIN 로그인 테스트</button>':'')
         +'</div>'
         +'<div class="cfgcard">'
         +'<div class="cfgtitle">📤 동기화 현황</div>'
@@ -1288,7 +1326,7 @@ function rSettings(){
       :'')
     +'<div class="cfgcard">'
     +'<div class="cfgtitle">⭐ 대표 선수 지정</div>'
-    +'<div style="font-size:11px;color:var(--txt2);margin-bottom:10px;line-height:1.6">기록 탭 달력에 해당 선수의 타격/투수 기록을 표시합니다.</div>'
+    +'<div style="font-size:11px;color:var(--txt2);margin-bottom:10px;line-height:1.6">'+(isAdmin?'기록 탭 달력 및 통계 기본 표시 선수를 지정합니다.':'내 자녀를 선택하면 해당 선수 기록만 표시됩니다.')+'</div>'
     +'<select onchange="S.myPlayer=this.value?parseInt(this.value):null;save();renderCt()" style="width:100%;height:40px;border-radius:var(--r);border:1px solid var(--bdr2);background:var(--bg2);color:var(--txt);font-size:14px;padding:0 10px;font-family:inherit;outline:none">'
     +'<option value=""'+(S.myPlayer==null?' selected':'')+'>선택 안 함</option>'
     +[...new Map(ROSTER.map(function(p){return[p.no,p];})).values()].map(function(p){return'<option value="'+p.no+'"'+(S.myPlayer===p.no?' selected':'')+'>'+p.name+' (#'+p.no+')</option>';}).join('')
@@ -1680,7 +1718,15 @@ function confirmGame(){
 
 // ── URL / 동기화 / 불러오기 ───────────────────────────────
 function saveSchoolName(){S.schoolName=document.getElementById('school-input').value.trim();save();toast('학교명 저장 완료','ok');r();}
-function saveUrl(){S.scriptUrl=document.getElementById('url-input').value.trim();S.scriptToken=document.getElementById('token-input').value.trim();save();toast('URL/토큰 저장 완료','ok');r();}
+function saveUrl(){
+  var wasEmpty=!S.scriptUrl;
+  S.scriptUrl=document.getElementById('url-input').value.trim();
+  S.scriptToken=document.getElementById('token-input').value.trim();
+  save();
+  if(wasEmpty&&S.scriptUrl)toast('URL 저장 완료! 이제 로그아웃 후 PIN으로 재로그인하세요','ok');
+  else toast('URL/토큰 저장 완료','ok');
+  r();
+}
 async function testConn(){
   const url=document.getElementById('url-input').value.trim();
   const tok=document.getElementById('token-input').value.trim();
