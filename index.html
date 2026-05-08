@@ -1512,6 +1512,10 @@ function confirmEditGame(gid){
   [S.blog,S.pit_bf,S.pit_runs].forEach(function(arr){
     arr.filter(function(e){return e.gid===gid;}).forEach(function(e){e.date=d;e.opp=o;});
   });
+  // 수정된 경기가 재동기화되도록 syncedIds에서 제거
+  S.syncedIds.delete('g_'+gid);
+  S.blog.filter(function(e){return e.gid===gid;}).forEach(function(e){S.syncedIds.delete(e.id);});
+  S.pit_bf.filter(function(e){return e.gid===gid;}).forEach(function(e){S.syncedIds.delete(e.id);});
   // 이 경기를 선택 상태로 + 해당 월로 이동
   S.logGameId=gid;
   S.calMonth=d.slice(0,7);
@@ -1579,7 +1583,7 @@ async function doSync(){
   const pfP=S.pit_bf.filter(e=>!S.syncedIds.has(e.id));
   const prP=S.pit_runs.filter(e=>!S.syncedIds.has(e.id));
   const gP=S.games.filter(g=>!S.syncedIds.has('g_'+g.id));
-  if(!bP.length&&!pfP.length&&!prP.length&&!S.rosterDirty){toast('동기화할 데이터 없음');return;}
+  if(!bP.length&&!pfP.length&&!prP.length&&!gP.length&&!S.rosterDirty){toast('동기화할 데이터 없음');return;}
   S.syncing=true;r();
   try{
     if(bP.length||pfP.length||prP.length||gP.length){

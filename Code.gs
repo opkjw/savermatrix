@@ -1,0 +1,146 @@
+// Code.gs — Baseball Savermatrix Google Apps Script 백엔드
+// Google Apps Script 에디터에 전체 복사 후 저장 → 새 배포(웹 앱) → 누구나 접근으로 배포
+
+// ── 시트 이름 상수 ──────────────────────────────────────────
+const SHEETS = {
+  games:    'games',
+  bat_log:  'bat_log',
+  pit_bf:   'pit_bf',
+  pit_runs: 'pit_runs',
+  roster:   'roster'
+};
+
+// ── 유틸: 시트 가져오기 (없으면 생성) ─────────────────────
+function getSheet(name) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  return ss.getSheetByName(name) || ss.insertSheet(name);
+}
+
+// ── 유틸: 시트 전체를 JSON 배열로 읽기 ────────────────────
+function readAll(sheetName) {
+  const sh = getSheet(sheetName);
+  const vals = sh.getDataRange().getValues();
+  if (vals.length < 2 || !vals[0][0]) return [];
+  const hdrs = vals[0].map(String);
+  return vals.slice(1)
+    .filter(r => r[0] !== '' && r[0] !== null && r[0] !== undefined)
+    .map(r => {
+      const obj = {};
+      hdrs.forEach((h, i) => {
+        if (h) obj[h] = (r[i] === '' || r[i] === null) ? null : r[i];
+      });
+      return obj;
+    });
+}
+
+// ── 유틸: upsert (id 기준 — 있으면 update, 없으면 append) ─
+function upsertRows(sheetName, items) {
+  if (!items || !items.length) return;
+  const sh = getSheet(sheetName);
+
+  // 현재 헤더 확인
+  const allVals = sh.getDataRange().getValues();
+  let hdrs;
+
+  if (allVals.length < 1 || !allVals[0][0]) {
+    // 시트가 비어있음 → 첫 아이템 기준으로 헤더 생성
+    hdrs = Object.keys(items[0]);
+    sh.clearContents();
+    sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]);
+  } else {
+    hdrs = allVals[0].map(String);
+    // 새 필드가 생겼으면 헤더에 추가
+    const newKeys = Object.keys(items[0]).filter(k => k && !hdrs.includes(k));
+    if (newKeys.length) {
+      hdrs = [...hdrs, ...newKeys];
+      sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]);
+    }
+  }
+
+  // id → 행번호 맵 (헤더 제외, 1-based)
+  const idColIdx = hdrs.indexOf('id');
+  const freshVals = sh.getDataRange().getValues();
+  const idRowMap = {};
+  if (idColIdx >= 0 && freshVals.length > 1) {
+    freshVals.slice(1).forEach((r, i) => {
+      if (r[idColIdx] !== '' && r[idColIdx] !== null) {
+        idRowMap[String(r[idColIdx])] = i + 2; // +1 header, +1 0→1-based
+      }
+    });
+  }
+
+  // upsert 처리
+  items.forEach(item => {
+    const row = hdrs.map(h => (item[h] !== undefined && item[h] !== null) ? item[h] : '');
+    const existingRowNum = idColIdx >= 0 ? idRowMap[String(item.id)] : null;
+    if (existingRowNum) {
+      // 업데이트
+      sh.getRange(existingRowNum, 1, 1, row.length).setValues([row]);
+    } else {
+      // 추가
+      const lastRow = sh.getLastRow();
+      sh.getRange(lastRow + 1, 1, 1, row.length).setValues([row]);
+      if (idColIdx >= 0) idRowMap[String(item.id)] = lastRow + 1;
+    }
+  });
+}
+
+// ── POST 핸들러: 기록 동기화 ───────────────────────────────
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    if (data.type === 'sync') {
+      upsertRows(SHEETS.games,    data.games    || []);
+      upsertRows(SHEETS.bat_log,  data.bat_log  || []);
+      upsertRows(SHEETS.pit_bf,   data.pit_bf   || []);
+      upsertRows(SHEETS.pit_runs, data.pit_runs || []);
+    }
+    return out({ status: 'ok' });
+  } catch (err) {
+    return out({ status: 'error', message: err.toString() });
+  }
+}
+
+// ── GET 핸들러: 불러오기 / 선수 명단 저장 ─────────────────
+function doGet(e) {
+  const action = e.parameter.action;
+  try {
+    // 선수 명단 저장
+    if (action === 'saveRoster') {
+      const roster = JSON.parse(decodeURIComponent(e.parameter.data));
+      const sh = getSheet(SHEETS.roster);
+      sh.clearContents();
+      if (roster.length) {
+        const hdrs = Object.keys(roster[0]);
+        sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]);
+        const rows = roster.map(p => hdrs.map(h => p[h] !== undefined && p[h] !== null ? p[h] : ''));
+        sh.getRange(2, 1, rows.length, hdrs.length).setValues(rows);
+      }
+      return out({ status: 'ok' });
+    }
+
+    // 전체 데이터 불러오기
+    if (action === 'fetch') {
+      return out({
+        status:   'ok',
+        games:    readAll(SHEETS.games),
+        bat_log:  readAll(SHEETS.bat_log),
+        pit_bf:   readAll(SHEETS.pit_bf),
+        pit_runs: readAll(SHEETS.pit_runs),
+        roster:   readAll(SHEETS.roster)
+      });
+    }
+
+    // 연결 테스트
+    return out({ status: 'ok', message: 'Baseball Savermatrix API' });
+  } catch (err) {
+    return out({ status: 'error', message: err.toString() });
+  }
+}
+
+// ── 유틸: JSON 응답 생성 ────────────────────────────────────
+function out(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
