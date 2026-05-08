@@ -245,7 +245,7 @@ function load(){
     const raw=localStorage.getItem('bb_final');
     if(raw){
       const d=JSON.parse(raw);
-      ['blog','pit_bf','pit_runs','games','game','gcnt','scriptUrl','lastSync','rosterDirty'].forEach(k=>{if(d[k]!==undefined)S[k]=d[k];});
+      ['blog','pit_bf','pit_runs','games','game','gcnt','scriptUrl','lastSync','rosterDirty','myPlayer'].forEach(k=>{if(d[k]!==undefined)S[k]=d[k];});
       S.syncedIds=new Set(d.syncedIds||[]);
       if(d.roster&&d.roster.length>0)ROSTER.splice(0,ROSTER.length,...d.roster);
     }
@@ -256,7 +256,7 @@ function save(){
     localStorage.setItem('bb_final',JSON.stringify({
       blog:S.blog,pit_bf:S.pit_bf,pit_runs:S.pit_runs,games:S.games,
       game:S.game,gcnt:S.gcnt,scriptUrl:S.scriptUrl,lastSync:S.lastSync,
-      syncedIds:[...S.syncedIds],roster:ROSTER,rosterDirty:S.rosterDirty,
+      syncedIds:[...S.syncedIds],roster:ROSTER,rosterDirty:S.rosterDirty,myPlayer:S.myPlayer,
     }));
   }catch(e){console.error(e);}
 }
@@ -593,14 +593,10 @@ function rLog(){
   // 선택 경기
   const selGid=S.logGameId||(S.game?S.game.id:allGames[0]&&allGames[0].id);
 
-  // 달력 표시 월 결정
+  // 달력 표시 월 결정 (기본: 현재 년/월)
   const now=new Date();
-  let calMon=S.calMonth;
-  if(!calMon){
-    const refGame=allGames.find(g=>g.id===selGid)||allGames[0];
-    calMon=refGame&&refGame.date?refGame.date.slice(0,7)
-      :(now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0'));
-  }
+  const todayMon=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  let calMon=S.calMonth||todayMon;
   const calY=parseInt(calMon.slice(0,4)),calM=parseInt(calMon.slice(5,7));
   const prevMon=calM===1?(calY-1)+'-12':calY+'-'+String(calM-1).padStart(2,'0');
   const nextMon=calM===12?(calY+1)+'-01':calY+'-'+String(calM+1).padStart(2,'0');
@@ -1058,7 +1054,7 @@ function rSettings(){
     +'<div style="font-size:11px;color:var(--txt2);margin-bottom:10px;line-height:1.6">기록 탭 달력에 해당 선수의 타격/투수 기록을 표시합니다.</div>'
     +'<select onchange="S.myPlayer=this.value||null;save();renderCt()" style="width:100%;height:40px;border-radius:var(--r);border:1px solid var(--bdr2);background:var(--bg2);color:var(--txt);font-size:14px;padding:0 10px;font-family:inherit;outline:none">'
     +'<option value=""'+(S.myPlayer?'':' selected')+'>선택 안 함</option>'
-    +ROSTER.map(function(p){return'<option value="'+p.no+'"'+(S.myPlayer===p.no?' selected':'')+'>'+p.name+' (#'+p.no+' · '+(p.r==='b'?'타자':'투수')+')</option>';}).join('')
+    +ROSTER.map(function(p){return'<option value="'+p.no+'"'+(S.myPlayer===p.no?' selected':'')+'>'+p.name+' (#'+p.no+')</option>';}).join('')
     +'</select>'
     +'</div>'
     +'<div class="cfgcard" style="margin-bottom:0">'
