@@ -1041,8 +1041,17 @@ function rStats(){
 
   if(!bs.length&&!ps.length)return h+'<div class="empty" style="padding:32px">해당 경기 기록이 없습니다.</div>';
 
+  // user 역할 + 대표선수 미지정 → 안내 메시지
+  if(!isAdmin&&!myNo){
+    return h+'<div class="empty" style="padding:32px;line-height:2">통계를 보려면<br>⚙ 설정 탭에서 <strong style="color:var(--navy)">대표 선수</strong>를 지정해주세요.</div>';
+  }
+
+  // 역할별 테이블 행 필터
+  const batRows=isAdmin?bs:bs.filter(s=>Number(s.no)===myNo);
+  const pitRows=isAdmin?ps:ps.filter(s=>Number(s.no)===myNo);
+
   // ── 타자 ──────────────────────────────────────────────────
-  if(bs.length){
+  if(bs.length&&batRows.length){
     const activeSprayNo=S.sprayPlayer!==null?S.sprayPlayer:(myBatSt?Number(myBatSt.no):null);
     h+='<div class="seclbl">🏏 타자 기본 기록 <span style="font-size:10px;font-weight:400;color:var(--txt2)">— 이름 탭 → 스프레이 차트'+(myBatSt?' · 대표 자동':'')+'</span></div>'
       +'<div class="statwrap"><table><thead><tr>'
@@ -1054,7 +1063,7 @@ function rStats(){
       +'<th class="sth" onclick="showStatInfo(\'BB\')">BB</th><th class="sth" onclick="showStatInfo(\'K\')">K</th>'
       +'<th class="sth" onclick="showStatInfo(\'SB\')">SB</th>'
       +'</tr></thead><tbody>';
-    bs.forEach(s=>{
+    batRows.forEach(s=>{
       const sel=Number(s.no)===activeSprayNo;
       h+='<tr style="cursor:pointer" onclick="setSprayPlayer('+Number(s.no)+')">'
         +'<td style="text-align:left;font-weight:700;color:'+(sel?'var(--navy)':'var(--txt)')+';text-decoration:'+(sel?'underline':'none')+'">'+esc(s.name)+(sel?' 📍':'')+'</td>'
@@ -1073,17 +1082,19 @@ function rStats(){
     } else {
       (showAll?sortedBs:sortedBs.filter(s=>Number(s.no)===myNo)).forEach(function(s){h+=rBatTile(s,myNo);});
     }
+  } else if(!isAdmin&&myNo&&!myBatSt){
+    h+=rNoRecMsg(myName,'타자');
   }
 
   // ── 투수 ──────────────────────────────────────────────────
-  if(ps.length){
+  if(ps.length&&pitRows.length){
     h+='<div class="seclbl">⚾ 투수 기본 기록</div>'
       +'<div class="statwrap"><table class="pit"><thead><tr>'
       +'<th style="text-align:left;min-width:62px">선수</th>'
       +'<th>G</th><th>IP</th><th>H</th><th>BB</th>'
       +'<th style="color:#93c5fd">K</th><th style="color:#fca5a5">HR</th><th>ER</th><th>R</th>'
       +'</tr></thead><tbody>';
-    ps.forEach(s=>{
+    pitRows.forEach(s=>{
       h+='<tr><td style="text-align:left;font-weight:700">'+esc(s.name)+'</td>'
         +'<td>'+s.g+'</td><td>'+s.ipd+'</td><td>'+s.h+'</td><td>'+s.bb+'</td>'
         +'<td style="color:#1d4ed8;font-weight:600">'+s.k+'</td>'
@@ -1100,6 +1111,8 @@ function rStats(){
     } else {
       (showAll?ps:ps.filter(s=>Number(s.no)===myNo)).forEach(function(s){h+=rPitTile(s,myNo);});
     }
+  } else if(!isAdmin&&myNo&&!myPitSt&&ps.length){
+    h+=rNoRecMsg(myName,'투수');
   }
   return h;
 }
