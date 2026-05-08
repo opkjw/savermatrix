@@ -227,7 +227,7 @@ let S={
   // 투수 입력
   curPit:null,pitSub:0,
   // 통계
-  sprayPlayer:null,statsFilter:'all',
+  sprayPlayer:null,statsFilter:'all',statsShowAll:false,
   // 기록
   logGameId:null,calMonth:null,myPlayer:null,
   // 설정
@@ -290,6 +290,13 @@ const MLB_BENCH={
   'K%': {good:0.15,bad:0.23,rev:true},
   'BB/K':{good:0.70,bad:0.35,rev:false},
   WAR: {good:2.0,bad:0,rev:false},
+  ERA: {good:3.50,bad:5.00,rev:true},
+  WHIP:{good:1.20,bad:1.50,rev:true},
+  FIP: {good:3.50,bad:5.00,rev:true},
+  'K/9':{good:9.0,bad:6.0,rev:false},
+  'BB/9':{good:3.0,bad:4.5,rev:true},
+  'pitK%':{good:0.25,bad:0.15,rev:false},
+  'pitBB%':{good:0.08,bad:0.12,rev:true},
 };
 function statTier(key,val){
   const b=MLB_BENCH[key];
@@ -401,7 +408,7 @@ function renderGHdr(){
     :('<div class="ghdr"><div><div class="gh-title">⚾ 우리아이 야구 기록 Ball Matrix</div>'
       +'<div class="gh-sub">경기를 시작하세요</div></div>'
       +'<div class="gh-right">'
-      +'<button class="gh-icon" onclick="setTab(4)">⚙</button>'
+      +'<button class="gh-icon" onclick="setTab(4)">'+(pc>0?'☁<div class="pdot"></div>':'⚙')+'</button>'
       +'<button class="gh-btn" onclick="showGameModal()">+ 경기 시작</button>'
       +'</div></div>');
 }
@@ -879,6 +886,58 @@ function rLogMonthly(allGames,calMon,calY,calM){
 }
 
 // ── 통계 탭 ──────────────────────────────────────────────
+function rStatTile(d,big){
+  var t=statTier(d.key,d.val),st=tierStyle(t);
+  var lbl=d.key.replace(/^pit/,'');
+  if(big)return '<div onclick="showStatInfo(\''+d.key+'\')" style="background:'+st.bg+';padding:13px 6px;text-align:center;cursor:pointer">'
+    +'<div style="font-size:10px;font-weight:700;color:'+st.fc+';margin-bottom:5px;letter-spacing:.03em">'+lbl+'</div>'
+    +'<div style="font-size:22px;font-weight:800;color:'+st.fc+'">'+d.fmt+'</div>'
+    +'<div style="font-size:10px;color:'+st.fc+';margin-top:3px;font-weight:600">'+st.mark+(t==='good'?' 좋음':t==='bad'?' 낮음':' 보통')+'</div>'
+    +'</div>';
+  return '<div onclick="showStatInfo(\''+d.key+'\')" style="background:'+st.bg+';padding:10px 4px;text-align:center;cursor:pointer">'
+    +'<div style="font-size:10px;font-weight:600;color:var(--txt2);margin-bottom:3px">'+lbl+'</div>'
+    +'<div style="font-size:16px;font-weight:700;color:'+st.fc+'">'+d.fmt+'</div>'
+    +'<div style="font-size:9px;color:'+st.fc+';margin-top:2px">'+st.mark+'</div>'
+    +'</div>';
+}
+function rBatTile(s,myNo){
+  var isMy=myNo&&Number(s.no)===myNo;
+  var hero=[{key:'OPS',val:s.ops,fmt:s.ops.toFixed(3)},{key:'wRC+',val:s.wrc_plus,fmt:String(s.wrc_plus)},{key:'WAR',val:s.war,fmt:s.war.toFixed(1)}];
+  var detail=[{key:'AVG',val:s.avg,fmt:s.avg.toFixed(3)},{key:'OBP',val:s.obp,fmt:s.obp.toFixed(3)},{key:'SLG',val:s.slg,fmt:s.slg.toFixed(3)},
+    {key:'wOBA',val:s.woba,fmt:s.woba.toFixed(3)},{key:'ISO',val:s.iso,fmt:s.iso.toFixed(3)},{key:'BABIP',val:s.babip,fmt:s.babip.toFixed(3)},
+    {key:'BB%',val:s.bbp,fmt:(s.bbp*100).toFixed(1)+'%'},{key:'K%',val:s.kp,fmt:(s.kp*100).toFixed(1)+'%'},{key:'BB/K',val:s.bbk>=99?0.99:s.bbk,fmt:s.bbk>=99?'∞':s.bbk.toFixed(2)}];
+  var h='<div style="margin:0 12px 12px;background:var(--card);border:'+(isMy?'2px solid var(--navy)':'1px solid var(--bdr)')+';border-radius:var(--rl);overflow:hidden">';
+  h+='<div style="padding:9px 13px;background:'+(isMy?'#EBF0FB':'var(--bg2)')+';display:flex;align-items:center;justify-content:space-between">';
+  h+='<div style="display:flex;align-items:center;gap:7px">';
+  if(isMy)h+='<span style="background:var(--navy);color:#fff;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">대표</span>';
+  h+='<span style="font-size:14px;font-weight:700;color:var(--txt)">'+s.name+'</span></div>';
+  h+='<span style="font-size:11px;color:var(--txt2)">'+s.pa+'PA · '+s.g+'G</span></div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--bdr);border-top:1px solid var(--bdr)">';
+  hero.forEach(function(d){h+=rStatTile(d,true);});
+  h+='</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--bdr);border-top:1px solid var(--bdr)">';
+  detail.forEach(function(d){h+=rStatTile(d,false);});
+  return h+'</div></div>';
+}
+function rPitTile(s,myNo){
+  var isMy=myNo&&Number(s.no)===myNo;
+  var kpVal=s.bf>0?s.k/s.bf:0,bbpVal=s.bf>0?s.bb/s.bf:0;
+  var hero=[{key:'ERA',val:s.era,fmt:s.era.toFixed(2)},{key:'WHIP',val:s.whip,fmt:s.whip.toFixed(2)},{key:'FIP',val:s.fip,fmt:s.fip.toFixed(2)}];
+  var detail=[{key:'K/9',val:s.k9,fmt:s.k9.toFixed(1)},{key:'BB/9',val:s.bb9,fmt:s.bb9.toFixed(1)},{key:'pitK%',val:kpVal,fmt:(kpVal*100).toFixed(1)+'%'},{key:'pitBB%',val:bbpVal,fmt:(bbpVal*100).toFixed(1)+'%'}];
+  var h='<div style="margin:0 12px 12px;background:var(--card);border:'+(isMy?'2px solid var(--navy)':'1px solid var(--bdr)')+';border-radius:var(--rl);overflow:hidden">';
+  h+='<div style="padding:9px 13px;background:'+(isMy?'#EBF0FB':'var(--bg2)')+';display:flex;align-items:center;justify-content:space-between">';
+  h+='<div style="display:flex;align-items:center;gap:7px">';
+  if(isMy)h+='<span style="background:var(--navy);color:#fff;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">대표</span>';
+  h+='<span style="font-size:14px;font-weight:700;color:var(--txt)">'+s.name+'</span></div>';
+  h+='<span style="font-size:11px;color:var(--txt2)">'+s.ipd+'IP · '+s.g+'G</span></div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--bdr);border-top:1px solid var(--bdr)">';
+  hero.forEach(function(d){h+=rStatTile(d,true);});
+  h+='</div><div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:1px;background:var(--bdr);border-top:1px solid var(--bdr)">';
+  detail.forEach(function(d){h+=rStatTile(d,false);});
+  return h+'</div></div>';
+}
+function rNoRecMsg(name,type){
+  return'<div style="margin:0 12px 12px;padding:18px;background:var(--card);border:1px solid var(--bdr);border-radius:var(--rl);text-align:center;color:var(--txt2);font-size:13px">'+name+'의 '+type+' 기록이 없습니다.</div>';
+}
 function rStats(){
   const sf=S.statsFilter||'all';
   let filtGids=null;
@@ -889,11 +948,16 @@ function rStats(){
   const totalG=S.games.length;
   const offG=S.games.filter(g=>(g.type||'O')==='O').length;
   const praG=S.games.filter(g=>g.type==='P').length;
+  const myNo=S.myPlayer?Number(S.myPlayer):null;
+  const showAll=S.statsShowAll||!myNo;
+  const myBatSt=myNo?bs.find(s=>Number(s.no)===myNo):null;
+  const myPitSt=myNo?ps.find(s=>Number(s.no)===myNo):null;
+  const myName=myNo?(ROSTER.find(x=>x.no===myNo)||{name:'대표선수'}).name:null;
 
-  const fbBase='padding:6px 14px;border-radius:20px;border:1px solid var(--bdr);'
-    +'font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;';
+  const fbBase='padding:6px 14px;border-radius:20px;border:1px solid var(--bdr);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;';
   const fbOn=fbBase+'background:var(--navy);color:#fff;border-color:var(--navy)';
   const fbOff=fbBase+'background:var(--card);color:var(--txt2)';
+  const tbtn=myNo?'<button onclick="S.statsShowAll='+(!showAll)+';renderCt()" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:12px;padding:2px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit">'+(showAll?'대표만 ▲':'전체 선수 ▼')+'</button>':'';
 
   let h='<div style="display:flex;gap:8px;padding:10px 12px;border-bottom:1px solid var(--bdr);background:var(--card)">'
     +'<button onclick="S.statsFilter=\'all\';renderCt()" style="'+(sf==='all'?fbOn:fbOff)+'">전체 '+totalG+'</button>'
@@ -903,96 +967,41 @@ function rStats(){
 
   if(!bs.length&&!ps.length)return h+'<div class="empty" style="padding:32px">해당 경기 기록이 없습니다.</div>';
 
+  // ── 타자 ──────────────────────────────────────────────────
   if(bs.length){
-    // 대표 선수 번호·이름 (Number 변환으로 타입 통일)
-    const myNo=S.myPlayer?Number(S.myPlayer):null;
-    const myPlayerEntry=myNo?bs.find(s=>Number(s.no)===myNo):null;
-    const myPlayerName=myPlayerEntry?myPlayerEntry.name:null;
-    // 스프레이 차트: 클릭 선택 우선, 없으면 대표 선수 자동
-    const activeSpray=S.sprayPlayer||(myPlayerName||null);
-
-    h+='<div class="seclbl">🏏 타자 기본 기록 <span style="font-size:10px;font-weight:400;color:var(--txt2)">— 이름 탭 → 스프레이 차트'+(myPlayerName?' · 대표 선수 자동 표시':'')+'</span></div>'
+    const activeSpray=S.sprayPlayer||(myBatSt?myBatSt.name:null);
+    h+='<div class="seclbl">🏏 타자 기본 기록 <span style="font-size:10px;font-weight:400;color:var(--txt2)">— 이름 탭 → 스프레이 차트'+(myBatSt?' · 대표 자동':'')+'</span></div>'
       +'<div class="statwrap"><table><thead><tr>'
       +'<th style="text-align:left;min-width:62px">선수</th>'
-      +'<th class="sth" onclick="showStatInfo(\'PA\')">PA</th>'
-      +'<th class="sth" onclick="showStatInfo(\'AB\')">AB</th>'
-      +'<th class="sth" onclick="showStatInfo(\'H\')">H</th>'
-      +'<th class="sth" onclick="showStatInfo(\'2B\')">2B</th>'
-      +'<th class="sth" onclick="showStatInfo(\'3B\')">3B</th>'
-      +'<th class="sth" onclick="showStatInfo(\'HR\')" style="color:#fca5a5">HR</th>'
-      +'<th class="sth" onclick="showStatInfo(\'RBI\')">RBI</th>'
-      +'<th class="sth" onclick="showStatInfo(\'R\')">R</th>'
-      +'<th class="sth" onclick="showStatInfo(\'BB\')">BB</th>'
-      +'<th class="sth" onclick="showStatInfo(\'K\')">K</th>'
+      +'<th class="sth" onclick="showStatInfo(\'PA\')">PA</th><th class="sth" onclick="showStatInfo(\'AB\')">AB</th>'
+      +'<th class="sth" onclick="showStatInfo(\'H\')">H</th><th class="sth" onclick="showStatInfo(\'2B\')">2B</th>'
+      +'<th class="sth" onclick="showStatInfo(\'3B\')">3B</th><th class="sth" onclick="showStatInfo(\'HR\')" style="color:#fca5a5">HR</th>'
+      +'<th class="sth" onclick="showStatInfo(\'RBI\')">RBI</th><th class="sth" onclick="showStatInfo(\'R\')">R</th>'
+      +'<th class="sth" onclick="showStatInfo(\'BB\')">BB</th><th class="sth" onclick="showStatInfo(\'K\')">K</th>'
       +'<th class="sth" onclick="showStatInfo(\'SB\')">SB</th>'
       +'</tr></thead><tbody>';
     bs.forEach(s=>{
       const sel=S.sprayPlayer?S.sprayPlayer===s.name:activeSpray===s.name;
       h+='<tr style="cursor:pointer" onclick="setSprayPlayer(\''+s.name+'\')">'
         +'<td style="text-align:left;font-weight:700;color:'+(sel?'var(--navy)':'var(--txt)')+';text-decoration:'+(sel?'underline':'none')+'">'+s.name+(sel?' 📍':'')+'</td>'
-        +'<td>'+s.pa+'</td><td>'+s.ab+'</td><td>'+s.h+'</td>'
-        +'<td>'+s.d2+'</td><td>'+s.d3+'</td>'
+        +'<td>'+s.pa+'</td><td>'+s.ab+'</td><td>'+s.h+'</td><td>'+s.d2+'</td><td>'+s.d3+'</td>'
         +'<td style="color:var(--red);font-weight:600">'+s.hr+'</td>'
-        +'<td>'+s.rbi+'</td><td>'+s.run+'</td><td>'+s.bb+'</td><td>'+s.so+'</td><td>'+s.sb+'</td>'
-        +'</tr>';
+        +'<td>'+s.rbi+'</td><td>'+s.run+'</td><td>'+s.bb+'</td><td>'+s.so+'</td><td>'+s.sb+'</td></tr>';
     });
     h+='</tbody></table></div>';
     if(activeSpray)h+=rSprayChart(activeSpray);
-    h+='<div class="seclbl">📊 타자 세이버매트릭스 <span style="font-size:10px;font-weight:400;color:var(--txt2)">— 지표 탭하면 설명 · MLB 기준 색상</span></div>';
-    // 대표 선수 우선 정렬 (Number 변환으로 타입 안전 비교)
+
+    h+='<div class="seclbl" style="display:flex;align-items:center">📊 타자 세이버매트릭스 <span style="font-size:10px;font-weight:400;color:var(--txt2);margin-left:4px">— MLB 기준 색상</span>'+tbtn+'</div>';
     const sortedBs=myNo?[...bs].sort((a,b)=>(Number(b.no)===myNo?1:0)-(Number(a.no)===myNo?1:0)):bs;
-    sortedBs.forEach(function(s){
-      const isMy=myNo&&Number(s.no)===myNo;
-      const heroData=[
-        {key:'OPS',val:s.ops,fmt:s.ops.toFixed(3)},
-        {key:'wRC+',val:s.wrc_plus,fmt:String(s.wrc_plus)},
-        {key:'WAR',val:s.war,fmt:s.war.toFixed(1)},
-      ];
-      const detailData=[
-        {key:'AVG',val:s.avg,fmt:s.avg.toFixed(3)},
-        {key:'OBP',val:s.obp,fmt:s.obp.toFixed(3)},
-        {key:'SLG',val:s.slg,fmt:s.slg.toFixed(3)},
-        {key:'wOBA',val:s.woba,fmt:s.woba.toFixed(3)},
-        {key:'ISO',val:s.iso,fmt:s.iso.toFixed(3)},
-        {key:'BABIP',val:s.babip,fmt:s.babip.toFixed(3)},
-        {key:'BB%',val:s.bbp,fmt:(s.bbp*100).toFixed(1)+'%'},
-        {key:'K%',val:s.kp,fmt:(s.kp*100).toFixed(1)+'%'},
-        {key:'BB/K',val:s.bbk>=99?0.99:s.bbk,fmt:s.bbk>=99?'∞':s.bbk.toFixed(2)},
-      ];
-      h+='<div style="margin:0 12px 12px;background:var(--card);border:'+(isMy?'2px solid var(--navy)':'1px solid var(--bdr)')+';border-radius:var(--rl);overflow:hidden">';
-      // 카드 헤더
-      h+='<div style="padding:9px 13px;background:'+(isMy?'#EBF0FB':'var(--bg2)')+';display:flex;align-items:center;justify-content:space-between">';
-      h+='<div style="display:flex;align-items:center;gap:7px">';
-      if(isMy)h+='<span style="background:var(--navy);color:#fff;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">대표</span>';
-      h+='<span style="font-size:14px;font-weight:700;color:var(--txt)">'+s.name+'</span>';
-      h+='</div>';
-      h+='<span style="font-size:11px;color:var(--txt2)">'+s.pa+'PA · '+s.g+'G</span>';
-      h+='</div>';
-      // 핵심 지표 3칸
-      h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--bdr);border-top:1px solid var(--bdr)">';
-      heroData.forEach(function(d){
-        var t=statTier(d.key,d.val),st=tierStyle(t);
-        h+='<div onclick="showStatInfo(\''+d.key+'\')" style="background:'+st.bg+';padding:13px 6px;text-align:center;cursor:pointer">';
-        h+='<div style="font-size:10px;font-weight:700;color:'+st.fc+';margin-bottom:5px;letter-spacing:.03em">'+d.key+'</div>';
-        h+='<div style="font-size:22px;font-weight:800;color:'+st.fc+'">'+d.fmt+'</div>';
-        h+='<div style="font-size:10px;color:'+st.fc+';margin-top:3px;font-weight:600">'+st.mark+(t==='good'?' 좋음':t==='bad'?' 낮음':' 보통')+'</div>';
-        h+='</div>';
-      });
-      h+='</div>';
-      // 세부 지표 9칸 (3x3)
-      h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--bdr);border-top:1px solid var(--bdr)">';
-      detailData.forEach(function(d){
-        var t=statTier(d.key,d.val),st=tierStyle(t);
-        h+='<div onclick="showStatInfo(\''+d.key+'\')" style="background:'+st.bg+';padding:10px 4px;text-align:center;cursor:pointer">';
-        h+='<div style="font-size:10px;font-weight:600;color:var(--txt2);margin-bottom:3px">'+d.key+'</div>';
-        h+='<div style="font-size:16px;font-weight:700;color:'+st.fc+'">'+d.fmt+'</div>';
-        h+='<div style="font-size:9px;color:'+st.fc+';margin-top:2px">'+st.mark+'</div>';
-        h+='</div>';
-      });
-      h+='</div>';
-      h+='</div>';
-    });
+    if(myNo&&!myBatSt){
+      h+=rNoRecMsg(myName,'타자');
+      if(showAll)sortedBs.forEach(function(s){h+=rBatTile(s,myNo);});
+    } else {
+      (showAll?sortedBs:sortedBs.filter(s=>Number(s.no)===myNo)).forEach(function(s){h+=rBatTile(s,myNo);});
+    }
   }
+
+  // ── 투수 ──────────────────────────────────────────────────
   if(ps.length){
     h+='<div class="seclbl">⚾ 투수 기본 기록</div>'
       +'<div class="statwrap"><table class="pit"><thead><tr>'
@@ -1001,39 +1010,22 @@ function rStats(){
       +'<th style="color:#93c5fd">K</th><th style="color:#fca5a5">HR</th><th>ER</th><th>R</th>'
       +'</tr></thead><tbody>';
     ps.forEach(s=>{
-      h+='<tr>'
-        +'<td style="text-align:left;font-weight:700">'+s.name+'</td>'
+      h+='<tr><td style="text-align:left;font-weight:700">'+s.name+'</td>'
         +'<td>'+s.g+'</td><td>'+s.ipd+'</td><td>'+s.h+'</td><td>'+s.bb+'</td>'
         +'<td style="color:#1d4ed8;font-weight:600">'+s.k+'</td>'
         +'<td style="color:var(--red)">'+s.hr+'</td>'
         +'<td style="color:var(--red);font-weight:600">'+s.er+'</td>'
-        +'<td>'+s.r+'</td>'
-        +'</tr>';
+        +'<td>'+s.r+'</td></tr>';
     });
     h+='</tbody></table></div>';
-    h+='<div class="seclbl">📈 투수 세이버매트릭스 <span style="font-size:10px;font-weight:400;color:var(--txt2)">— 지표 탭하면 설명 표시</span></div>'
-      +'<div class="statwrap"><table class="pit"><thead><tr>'
-      +'<th style="text-align:left;min-width:62px">선수</th>'
-      +'<th class="sth" onclick="showStatInfo(\'ERA\')">ERA</th>'
-      +'<th class="sth" onclick="showStatInfo(\'WHIP\')">WHIP</th>'
-      +'<th class="sth" onclick="showStatInfo(\'FIP\')">FIP</th>'
-      +'<th class="sth" onclick="showStatInfo(\'K/9\')">K/9</th>'
-      +'<th class="sth" onclick="showStatInfo(\'BB/9\')">BB/9</th>'
-      +'<th class="sth" onclick="showStatInfo(\'pitK%\')">K%</th>'
-      +'<th class="sth" onclick="showStatInfo(\'pitBB%\')">BB%</th>'
-      +'</tr></thead><tbody>';
-    ps.forEach(s=>{
-      h+='<tr>'
-        +'<td style="text-align:left;font-weight:700">'+s.name+'</td>'
-        +'<td class="hir" style="font-weight:700">'+s.era.toFixed(2)+'</td>'
-        +'<td>'+s.whip.toFixed(2)+'</td><td>'+s.fip.toFixed(2)+'</td>'
-        +'<td style="color:#1d4ed8;font-weight:600">'+s.k9.toFixed(1)+'</td>'
-        +'<td>'+s.bb9.toFixed(1)+'</td>'
-        +'<td>'+(s.bf>0?(s.k/s.bf*100).toFixed(1)+'%':'-')+'</td>'
-        +'<td>'+(s.bf>0?(s.bb/s.bf*100).toFixed(1)+'%':'-')+'</td>'
-        +'</tr>';
-    });
-    h+='</tbody></table></div>';
+
+    h+='<div class="seclbl" style="display:flex;align-items:center">📈 투수 세이버매트릭스 <span style="font-size:10px;font-weight:400;color:var(--txt2);margin-left:4px">— MLB 기준 색상</span>'+tbtn+'</div>';
+    if(myNo&&!myPitSt){
+      h+=rNoRecMsg(myName,'투수');
+      if(showAll)ps.forEach(function(s){h+=rPitTile(s,myNo);});
+    } else {
+      (showAll?ps:ps.filter(s=>Number(s.no)===myNo)).forEach(function(s){h+=rPitTile(s,myNo);});
+    }
   }
   return h;
 }
