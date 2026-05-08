@@ -85,11 +85,40 @@ function upsertRows(sheetName, items) {
   });
 }
 
+// ── 유틸: gid 기준으로 시트에서 해당 행 삭제 ──────────────
+function deleteByGid(sheetName, gids) {
+  if (!gids || !gids.length) return;
+  const sh = getSheet(sheetName);
+  const vals = sh.getDataRange().getValues();
+  if (vals.length < 2) return;
+  const hdrs = vals[0].map(String);
+  const gidCol = hdrs.indexOf('gid');
+  const idCol  = hdrs.indexOf('id');
+  // games 시트는 id 컬럼 자체가 gid
+  const keyCol = gidCol >= 0 ? gidCol : idCol;
+  if (keyCol < 0) return;
+  const gidSet = new Set(gids.map(String));
+  // 뒤에서부터 삭제해야 행 번호 밀림 없음
+  for (let i = vals.length - 1; i >= 1; i--) {
+    if (gidSet.has(String(vals[i][keyCol]))) {
+      sh.deleteRow(i + 1); // 1-based
+    }
+  }
+}
+
 // ── POST 핸들러: 기록 동기화 ───────────────────────────────
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     if (data.type === 'sync') {
+      // 삭제 먼저 처리 (새 데이터 upsert 전에)
+      const delGids = data.deleted_gids || [];
+      if (delGids.length) {
+        deleteByGid(SHEETS.games,    delGids);
+        deleteByGid(SHEETS.bat_log,  delGids);
+        deleteByGid(SHEETS.pit_bf,   delGids);
+        deleteByGid(SHEETS.pit_runs, delGids);
+      }
       upsertRows(SHEETS.games,    data.games    || []);
       upsertRows(SHEETS.bat_log,  data.bat_log  || []);
       upsertRows(SHEETS.pit_bf,   data.pit_bf   || []);

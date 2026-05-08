@@ -236,7 +236,7 @@ let S={
   game:null,gcnt:1,games:[],
   blog:[],pit_bf:[],pit_runs:[],
   // 동기화
-  scriptUrl:"",lastSync:null,syncing:false,loading:false,rosterDirty:false,syncedIds:new Set(),
+  scriptUrl:"",lastSync:null,syncing:false,loading:false,rosterDirty:false,syncedIds:new Set(),deletedGids:[],
 };
 
 // ── 저장/불러오기 ──────────────────────────────────────────
@@ -245,7 +245,7 @@ function load(){
     const raw=localStorage.getItem('bb_final');
     if(raw){
       const d=JSON.parse(raw);
-      ['blog','pit_bf','pit_runs','games','game','gcnt','scriptUrl','lastSync','rosterDirty'].forEach(k=>{if(d[k]!==undefined)S[k]=d[k];});
+      ['blog','pit_bf','pit_runs','games','game','gcnt','scriptUrl','lastSync','rosterDirty','deletedGids'].forEach(k=>{if(d[k]!==undefined)S[k]=d[k];});
       if(d.myPlayer!=null)S.myPlayer=parseInt(d.myPlayer)||null;
       S.syncedIds=new Set(d.syncedIds||[]);
       if(d.roster&&d.roster.length>0)ROSTER.splice(0,ROSTER.length,...d.roster);
@@ -258,6 +258,7 @@ function save(){
       blog:S.blog,pit_bf:S.pit_bf,pit_runs:S.pit_runs,games:S.games,
       game:S.game,gcnt:S.gcnt,scriptUrl:S.scriptUrl,lastSync:S.lastSync,
       syncedIds:[...S.syncedIds],roster:ROSTER,rosterDirty:S.rosterDirty,myPlayer:S.myPlayer,
+      deletedGids:S.deletedGids,
     }));
   }catch(e){console.error(e);}
 }
@@ -1276,7 +1277,9 @@ function delGame(gid){
   S.pit_runs=S.pit_runs.filter(e=>e.gid!==gid);
   if(S.logGameId===gid)S.logGameId=null;
   if(S.game&&S.game.id===gid)S.game=null;
-  save();toast(label+' 삭제됨','ok');r();
+  if(!S.deletedGids.includes(gid))S.deletedGids.push(gid);
+  S.syncedIds.delete('g_'+gid);
+  save();toast(label+' 삭제됨 (다음 동기화 시 서버에서도 삭제)','ok');r();
 }
 
 // ── 기록 편집 ─────────────────────────────────────────────
@@ -1583,18 +1586,20 @@ async function doSync(){
   const pfP=S.pit_bf.filter(e=>!S.syncedIds.has(e.id));
   const prP=S.pit_runs.filter(e=>!S.syncedIds.has(e.id));
   const gP=S.games.filter(g=>!S.syncedIds.has('g_'+g.id));
-  if(!bP.length&&!pfP.length&&!prP.length&&!gP.length&&!S.rosterDirty){toast('동기화할 데이터 없음');return;}
+  const dG=S.deletedGids||[];
+  if(!bP.length&&!pfP.length&&!prP.length&&!gP.length&&!dG.length&&!S.rosterDirty){toast('동기화할 데이터 없음');return;}
   S.syncing=true;r();
   try{
-    if(bP.length||pfP.length||prP.length||gP.length){
+    if(bP.length||pfP.length||prP.length||gP.length||dG.length){
       const res=await fetch(S.scriptUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},
-        body:JSON.stringify({type:'sync',games:gP,bat_log:bP,pit_bf:pfP,pit_runs:prP})});
+        body:JSON.stringify({type:'sync',games:gP,bat_log:bP,pit_bf:pfP,pit_runs:prP,deleted_gids:dG})});
       const data=await res.json();
       if(data.status!=='ok')throw new Error(data.message||'서버 오류');
       bP.forEach(e=>S.syncedIds.add(e.id));
       pfP.forEach(e=>S.syncedIds.add(e.id));
       prP.forEach(e=>S.syncedIds.add(e.id));
       gP.forEach(g=>S.syncedIds.add('g_'+g.id));
+      S.deletedGids=[];
     }
     if(S.rosterDirty){
       const rp=encodeURIComponent(JSON.stringify(ROSTER));
@@ -1604,7 +1609,8 @@ async function doSync(){
     }
     S.lastSync=Date.now();save();
     const total=bP.length+pfP.length+prP.length;
-    toast('☁ 동기화 완료 ('+(total>0?total+'건':'선수명단')+'전송)','ok');
+    const delMsg=dG.length?' · '+dG.length+'경기 삭제':'';
+    toast('☁ 동기화 완료 ('+(total>0?total+'건':'선수명단')+delMsg+'전송)','ok');
   }catch(e){toast('동기화 실패: '+e.message,'err');console.error(e);}
   S.syncing=false;r();
 }
