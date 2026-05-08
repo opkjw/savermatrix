@@ -617,9 +617,9 @@ function rLog(){
   const DOW=['일','월','화','수','목','금','토'];
   let h='<div class="cal-wrap">';
   h+='<div class="cal-nav">'
-    +'<button onclick="S.calMonth=\''+prevMon+'\';renderCt()">&#8249;</button>'
+    +'<button onclick="S.calMonth=\''+prevMon+'\';S.logGameId=null;renderCt()">&#8249;</button>'
     +'<span>'+calY+'년 '+calM+'월</span>'
-    +'<button onclick="S.calMonth=\''+nextMon+'\';renderCt()">&#8250;</button>'
+    +'<button onclick="S.calMonth=\''+nextMon+'\';S.logGameId=null;renderCt()">&#8250;</button>'
     +'</div>';
   h+='<div class="cal-grid">';
   DOW.forEach(function(d,i){
@@ -806,7 +806,7 @@ function rLogMonthly(allGames,calMon,calY,calM){
       var obp=(ab+bb+hbp+sf)>0?(h2+bb+hbp)/(ab+bb+hbp+sf):null;
       var slg=ab>0?(h2+d2+2*d3+3*hr)/ab:null;
       var ops=(obp!==null&&slg!==null)?obp+slg:null;
-      return{avg:avg,obp:obp,ops:ops,pa:entries.length};
+      return{avg:avg,obp:obp,ops:ops,pa:entries.length,ab:ab,h:h2};
     }
     const cur=calcMS(curBlog),prev=calcMS(prevBlog);
     const mp=ROSTER.find(function(x){return x.no===myNo;});
@@ -814,7 +814,8 @@ function rLogMonthly(allGames,calMon,calY,calM){
     const prevMonLabel=(prevMon.slice(0,4)===String(calY)?'':prevMon.slice(0,4)+'년 ')+parseInt(prevMon.slice(5,7))+'월';
     if(cur.pa>0||prev.pa>0){
       h+='<div style="margin:8px 12px 4px;background:var(--card);border:1px solid var(--bdr);border-radius:var(--rl);padding:14px">';
-      h+='<div style="font-size:12px;font-weight:700;color:var(--txt);margin-bottom:10px">'+mpName+' '+calM+'월 주요 타격지표 <span style="font-weight:400;color:var(--txt2);font-size:11px">vs '+prevMonLabel+'</span></div>';
+      h+='<div style="font-size:12px;font-weight:700;color:var(--txt);margin-bottom:2px">'+mpName+' '+calM+'월 주요 타격지표 <span style="font-weight:400;color:var(--txt2);font-size:11px">vs '+prevMonLabel+'</span></div>';
+      h+='<div style="font-size:12px;color:var(--txt2);margin-bottom:10px">'+cur.ab+'타수 '+cur.h+'안타</div>';
       h+='<div style="display:flex;gap:8px">';
       var stats2=[
         {key:'AVG',cur:cur.avg,prev:prev.avg},
