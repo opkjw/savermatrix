@@ -969,7 +969,7 @@ function rStats(){
 
   // ── 타자 ──────────────────────────────────────────────────
   if(bs.length){
-    const activeSpray=S.sprayPlayer||(myBatSt?myBatSt.name:null);
+    const activeSprayNo=S.sprayPlayer!==null?S.sprayPlayer:(myBatSt?Number(myBatSt.no):null);
     h+='<div class="seclbl">🏏 타자 기본 기록 <span style="font-size:10px;font-weight:400;color:var(--txt2)">— 이름 탭 → 스프레이 차트'+(myBatSt?' · 대표 자동':'')+'</span></div>'
       +'<div class="statwrap"><table><thead><tr>'
       +'<th style="text-align:left;min-width:62px">선수</th>'
@@ -981,15 +981,15 @@ function rStats(){
       +'<th class="sth" onclick="showStatInfo(\'SB\')">SB</th>'
       +'</tr></thead><tbody>';
     bs.forEach(s=>{
-      const sel=S.sprayPlayer?S.sprayPlayer===s.name:activeSpray===s.name;
-      h+='<tr style="cursor:pointer" onclick="setSprayPlayer(&apos;'+s.name+'&apos;)">'
+      const sel=Number(s.no)===activeSprayNo;
+      h+='<tr style="cursor:pointer" onclick="setSprayPlayer('+Number(s.no)+')">'
         +'<td style="text-align:left;font-weight:700;color:'+(sel?'var(--navy)':'var(--txt)')+';text-decoration:'+(sel?'underline':'none')+'">'+s.name+(sel?' 📍':'')+'</td>'
         +'<td>'+s.pa+'</td><td>'+s.ab+'</td><td>'+s.h+'</td><td>'+s.d2+'</td><td>'+s.d3+'</td>'
         +'<td style="color:var(--red);font-weight:600">'+s.hr+'</td>'
         +'<td>'+s.rbi+'</td><td>'+s.run+'</td><td>'+s.bb+'</td><td>'+s.so+'</td><td>'+s.sb+'</td></tr>';
     });
     h+='</tbody></table></div>';
-    if(activeSpray)h+=rSprayChart(activeSpray);
+    if(activeSprayNo!==null)h+=rSprayChart(activeSprayNo);
 
     h+='<div class="seclbl" style="display:flex;align-items:center">📊 타자 세이버매트릭스 <span style="font-size:10px;font-weight:400;color:var(--txt2);margin-left:4px">— MLB 기준 색상</span>'+tbtn+'</div>';
     const sortedBs=myNo?[...bs].sort((a,b)=>(Number(b.no)===myNo?1:0)-(Number(a.no)===myNo?1:0)):bs;
@@ -1031,8 +1031,11 @@ function rStats(){
 }
 
 // ── 스프레이 차트 ─────────────────────────────────────────
-function rSprayChart(playerName){
-  var blog=S.blog.filter(function(e){return e.pn===playerName;});
+function rSprayChart(pno){
+  var pno2=Number(pno);
+  var roster=ROSTER.find(function(x){return Number(x.no)===pno2;});
+  var playerName=roster?roster.name:('#'+pno2);
+  var blog=S.blog.filter(function(e){return Number(e.pno)===pno2;});
   var entries=blog.filter(function(e){return e.zone;});
   var cx=175,cy=200,r=162;
   var SECTORS=[
@@ -1127,7 +1130,7 @@ function rSprayChart(playerName){
   return '<div id="spray-section" style="padding:0 12px 8px">'
     +'<div style="background:#111827;border-radius:14px;overflow:hidden;padding:12px 0 10px">'
     +'<div style="display:flex;align-items:center;justify-content:flex-end;padding:0 12px 6px">'
-    +'<button onclick="setSprayPlayer(&apos;'+playerName+'&apos;)" style="background:rgba(255,255,255,.15);border:none;color:rgba(255,255,255,.85);cursor:pointer;font-size:14px;padding:10px 14px;border-radius:6px;min-height:44px;line-height:1">✕</button>'
+    +'<button onclick="setSprayPlayer('+pno2+')" style="background:rgba(255,255,255,.15);border:none;color:rgba(255,255,255,.85);cursor:pointer;font-size:14px;padding:10px 14px;border-radius:6px;min-height:44px;line-height:1">✕</button>'
     +'</div>'
     +'<svg viewBox="0 0 350 215" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">'+h+'</svg>'
     // 범례
@@ -1143,10 +1146,11 @@ function rSprayChart(playerName){
     +'</div></div>';
 }
 
-function setSprayPlayer(name){
-  S.sprayPlayer=(S.sprayPlayer===name)?null:name;
+function setSprayPlayer(pno){
+  var key=Number(pno);
+  S.sprayPlayer=(S.sprayPlayer===key)?null:key;
   renderCt();
-  if(S.sprayPlayer){setTimeout(function(){var el=document.getElementById('spray-section');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},100);}
+  if(S.sprayPlayer!==null){setTimeout(function(){var el=document.getElementById('spray-section');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},100);}
 }
 
 // ── 설정 탭 ──────────────────────────────────────────────
