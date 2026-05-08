@@ -380,6 +380,8 @@ function pendingCount(){
   return S.blog.filter(e=>!S.syncedIds.has(e.id)).length
     +S.pit_bf.filter(e=>!S.syncedIds.has(e.id)).length
     +S.pit_runs.filter(e=>!S.syncedIds.has(e.id)).length
+    +S.games.filter(g=>!S.syncedIds.has('g_'+g.id)).length
+    +(S.deletedGids&&S.deletedGids.length?S.deletedGids.length:0)
     +(S.rosterDirty?1:0);
 }
 
