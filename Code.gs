@@ -1,10 +1,16 @@
 // Code.gs — Baseball Savermatrix Google Apps Script 백엔드
 // Google Apps Script 에디터에 전체 복사 후 저장 → 새 배포(웹 앱) → 누구나 접근으로 배포
 
-// ── 인증 토큰 설정 ──────────────────────────────────────────
-// 빈 문자열('')이면 인증 없이 동작 (기존 방식 유지)
-// 값을 설정하면 앱 설정의 토큰과 일치해야만 접근 가능
+// ── 인증 설정 ───────────────────────────────────────────────
+// AUTH_TOKEN: 빈 문자열('')이면 인증 없이 동작
 const AUTH_TOKEN = '';
+
+// PIN 로그인 설정
+// ADMIN_PIN: 코치/감독용 (전체 선수 통계 접근)
+// USER_PIN:  학부모용 (대표 선수만 접근)
+// 빈 문자열이면 해당 역할 로그인 비활성화
+const ADMIN_PIN = '1234';
+const USER_PIN  = '0000';
 
 // ── 시트 이름 상수 ──────────────────────────────────────────
 const SHEETS = {
@@ -192,6 +198,14 @@ function doGet(e) {
         pit_runs: readAll(SHEETS.pit_runs),
         roster:   readAll(SHEETS.roster)
       });
+    }
+
+    // PIN 로그인 (AUTH_TOKEN 체크 제외 — 이 자체가 인증)
+    if (action === 'login') {
+      const pin = e.parameter.pin || '';
+      if (ADMIN_PIN && pin === ADMIN_PIN) return out({ status: 'ok', role: 'admin' });
+      if (USER_PIN  && pin === USER_PIN)  return out({ status: 'ok', role: 'user' });
+      return out({ status: 'error', message: 'PIN이 올바르지 않습니다.' });
     }
 
     // 연결 테스트

@@ -146,6 +146,20 @@ tr:nth-child(even) td{background:var(--bg2)}
 .em-zbtn{padding:8px 2px;border-radius:var(--r);font-size:11px;cursor:pointer;font-family:inherit;border:1px solid var(--bdr);background:var(--bg2);color:var(--txt2)}
 #toast{position:fixed;bottom:calc(72px + var(--sfb));left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:10px 20px;border-radius:var(--r);font-size:13px;z-index:99;transition:opacity .3s;pointer-events:none;white-space:nowrap;font-weight:500}
 #toast.ok{background:#15803d}#toast.err{background:#991b1b}#toast.off{opacity:0}
+#login-overlay{position:fixed;inset:0;background:var(--navy);z-index:200;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+.pin-wrap{width:100%;max-width:340px}
+.pin-logo{font-size:52px;text-align:center;margin-bottom:8px}
+.pin-title{font-size:22px;font-weight:700;color:#fff;text-align:center;margin-bottom:4px}
+.pin-sub{font-size:13px;color:rgba(255,255,255,.6);text-align:center;margin-bottom:32px}
+.pin-input{width:100%;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.25);border-radius:var(--rl);padding:16px 18px;font-size:20px;color:#fff;text-align:center;letter-spacing:6px;outline:none;font-family:inherit;-webkit-appearance:none;margin-bottom:10px}
+.pin-input:focus{border-color:rgba(255,255,255,.7);background:rgba(255,255,255,.18)}
+.pin-input::placeholder{letter-spacing:normal;font-size:14px;color:rgba(255,255,255,.4)}
+.pin-btn{width:100%;padding:16px;border:none;border-radius:var(--r);font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:10px}
+.pin-btn.primary{background:#fff;color:var(--navy)}
+.pin-btn.primary:active{opacity:.85}
+.pin-btn.secondary{background:rgba(255,255,255,.12);color:rgba(255,255,255,.75);border:1px solid rgba(255,255,255,.2)}
+.pin-btn.secondary:active{opacity:.7}
+.pin-err{font-size:12px;color:#fca5a5;text-align:center;min-height:18px;margin-bottom:8px}
 @keyframes flash{0%{background:#fde68a}100%{background:var(--card)}}
 .flash{animation:flash .5s ease-out}
 .cal-wrap{background:var(--card);border-bottom:1px solid var(--bdr)}
@@ -175,6 +189,7 @@ tr:nth-child(even) td{background:var(--bg2)}
   <div class="content" id="ct"></div>
   <div class="tabbar" id="tbr"></div>
 </div>
+<div id="login-overlay"></div>
 <div id="toast" class="off"></div>
 <div id="modal-root"></div>
 <script>
@@ -231,7 +246,7 @@ let S={
   // 기록
   logGameId:null,calMonth:null,myPlayer:null,
   // 설정
-  rosterSub:0,schoolName:"",
+  rosterSub:0,schoolName:"",role:null,
   // 데이터
   game:null,gcnt:1,games:[],
   blog:[],pit_bf:[],pit_runs:[],
@@ -250,6 +265,8 @@ function load(){
       S.syncedIds=new Set(d.syncedIds||[]);
       if(d.roster&&d.roster.length>0)ROSTER.splice(0,ROSTER.length,...d.roster);
     }
+    var sr=sessionStorage.getItem('bb_role');
+    if(sr)S.role=sr;
   }catch(e){console.error(e);}
 }
 function save(){
@@ -394,6 +411,60 @@ function pendingCount(){
     +(S.rosterDirty?1:0);
 }
 
+// ── 로그인 ────────────────────────────────────────────────
+function renderLogin(){
+  var ol=document.getElementById('login-overlay');
+  if(!ol)return;
+  if(!S.scriptUrl&&!S.role){
+    S.role='admin';
+    sessionStorage.setItem('bb_role','admin');
+  }
+  if(S.role){ol.style.display='none';return;}
+  ol.style.display='flex';
+  ol.innerHTML='<div class="pin-wrap">'
+    +'<div class="pin-logo">⚾</div>'
+    +'<div class="pin-title">야구 기록</div>'
+    +(S.schoolName?'<div class="pin-sub">'+esc(S.schoolName)+'</div>':'<div class="pin-sub">PIN을 입력하세요</div>')
+    +'<input class="pin-input" id="pin-input" type="password" inputmode="numeric" maxlength="8" placeholder="PIN 입력" autocomplete="off" onkeydown="if(event.key===&apos;Enter&apos;)doLogin()">'
+    +'<div class="pin-err" id="pin-err"></div>'
+    +'<button class="pin-btn primary" onclick="doLogin()">확인</button>'
+    +'<button class="pin-btn secondary" onclick="localLogin()">서버 없이 시작 (관리자)</button>'
+    +'</div>';
+  setTimeout(function(){var el=document.getElementById('pin-input');if(el)el.focus();},100);
+}
+async function doLogin(){
+  var pin=(document.getElementById('pin-input')||{}).value||'';
+  var errEl=document.getElementById('pin-err');
+  if(!pin){if(errEl)errEl.textContent='PIN을 입력해주세요.';return;}
+  if(!S.scriptUrl){localLogin();return;}
+  if(errEl)errEl.textContent='확인 중...';
+  try{
+    var res=await fetch(S.scriptUrl+'?action=login&pin='+encodeURIComponent(pin));
+    var data=await res.json();
+    if(data.status==='ok'&&data.role){
+      sessionStorage.setItem('bb_role',data.role);
+      S.role=data.role;
+      document.getElementById('login-overlay').style.display='none';
+      r();
+    }else{
+      if(errEl)errEl.textContent=data.message||'PIN이 올바르지 않습니다.';
+    }
+  }catch(e){
+    if(errEl)errEl.textContent='서버에 연결할 수 없습니다.';
+  }
+}
+function localLogin(){
+  sessionStorage.setItem('bb_role','admin');
+  S.role='admin';
+  document.getElementById('login-overlay').style.display='none';
+  r();
+}
+function doLogout(){
+  sessionStorage.removeItem('bb_role');
+  S.role=null;
+  renderLogin();
+}
+
 // ── 렌더 ─────────────────────────────────────────────────
 function renderGHdr(){
   const pc=pendingCount();
@@ -427,7 +498,7 @@ function renderCt(){
   else if(S.tab===3)el.innerHTML=rStats();
   else el.innerHTML=rSettings();
 }
-function r(){renderGHdr();renderTabs();renderCt();}
+function r(){renderLogin();renderGHdr();renderTabs();renderCt();}
 function setTab(i){S.tab=i;r();}
 
 // ── 타자 탭 ──────────────────────────────────────────────
@@ -951,7 +1022,8 @@ function rStats(){
   const offG=S.games.filter(g=>(g.type||'O')==='O').length;
   const praG=S.games.filter(g=>g.type==='P').length;
   const myNo=S.myPlayer?Number(S.myPlayer):null;
-  const showAll=S.statsShowAll||!myNo;
+  const isAdmin=S.role==='admin'||!S.role;
+  const showAll=isAdmin?(S.statsShowAll||!myNo):false;
   const myBatSt=myNo?bs.find(s=>Number(s.no)===myNo):null;
   const myPitSt=myNo?ps.find(s=>Number(s.no)===myNo):null;
   const myName=myNo?(ROSTER.find(x=>x.no===myNo)||{name:'대표선수'}).name:null;
@@ -959,7 +1031,7 @@ function rStats(){
   const fbBase='padding:6px 14px;border-radius:20px;border:1px solid var(--bdr);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;';
   const fbOn=fbBase+'background:var(--navy);color:#fff;border-color:var(--navy)';
   const fbOff=fbBase+'background:var(--card);color:var(--txt2)';
-  const tbtn=myNo?'<button onclick="S.statsShowAll='+(!showAll)+';renderCt()" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:12px;padding:2px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit">'+(showAll?'대표만 ▲':'전체 선수 ▼')+'</button>':'';
+  const tbtn=(myNo&&isAdmin)?'<button onclick="S.statsShowAll='+(!showAll)+';renderCt()" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:12px;padding:2px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit">'+(showAll?'대표만 ▲':'전체 선수 ▼')+'</button>':'';
 
   let h='<div style="display:flex;gap:8px;padding:10px 12px;border-bottom:1px solid var(--bdr);background:var(--card)">'
     +'<button onclick="S.statsFilter=\'all\';renderCt()" style="'+(sf==='all'?fbOn:fbOff)+'">전체 '+totalG+'</button>'
@@ -1165,36 +1237,42 @@ function setSprayPlayer(pno){
 function rSettings(){
   const pc=pendingCount();
   const lastStr=S.lastSync?new Date(S.lastSync).toLocaleString('ko',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'없음';
+  const isAdmin=S.role==='admin'||!S.role;
+  const roleBadge=S.scriptUrl
+    ?'<div style="display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--bdr);border-radius:var(--rl);padding:11px 14px;margin-bottom:10px">'
+      +'<div style="font-size:12px;color:var(--txt2)">접속 모드 <span style="font-weight:700;color:'+(isAdmin?'var(--navy)':'#15803d')+';margin-left:6px">'+(isAdmin?'👨‍💼 코치 / 감독':'👨‍👩‍👦 학부모')+'</span></div>'
+      +'<button onclick="doLogout()" style="font-size:12px;color:var(--txt2);background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:5px 12px;min-height:34px;cursor:pointer;font-family:inherit">로그아웃</button>'
+      +'</div>'
+    :'';
   return'<div class="cfgwrap">'
+    +roleBadge
     +'<div class="cfgcard">'
     +'<div class="cfgtitle">🏫 학교 / 팀 정보</div>'
-    +'<div style="font-size:11px;color:var(--txt2);margin-bottom:8px;line-height:1.7">학교명을 입력하면 앱 상단에 표시됩니다.</div>'
-    +'<div style="display:flex;gap:8px">'
-    +'<input class="cfginput" id="school-input" placeholder="예: 서울초등학교" maxlength="30" value="'+esc(S.schoolName)+'" style="flex:1;margin-bottom:0">'
-    +'<button class="cfgbtn pr" onclick="saveSchoolName()" style="white-space:nowrap;flex-shrink:0">✓ 저장</button>'
+    +(isAdmin
+      ?'<div style="display:flex;gap:8px"><input class="cfginput" id="school-input" placeholder="예: 서울초등학교" maxlength="30" value="'+esc(S.schoolName)+'" style="flex:1;margin-bottom:0"><button class="cfgbtn pr" onclick="saveSchoolName()" style="white-space:nowrap;flex-shrink:0">✓ 저장</button></div>'
+      :'<div style="font-size:14px;font-weight:600;color:var(--txt)">'+(S.schoolName||'(미설정)')+'</div>')
     +'</div>'
-    +'</div>'
-    +'<div class="cfgcard">'
-    +'<div class="cfgtitle">☁ 구글 시트 연동</div>'
-    +'<div style="font-size:11px;color:var(--txt2);margin-bottom:8px;line-height:1.7">Apps Script 웹 앱 URL을 입력하세요.</div>'
-    +'<input class="cfginput" id="url-input" placeholder="https://script.google.com/macros/s/.../exec" value="'+esc(S.scriptUrl)+'" autocomplete="off" spellcheck="false">'
-    +'<div style="font-size:11px;color:var(--txt2);margin:4px 0 8px;line-height:1.7">🔑 인증 토큰 <span style="font-weight:400">(Code.gs의 AUTH_TOKEN과 동일하게 입력)</span></div>'
-    +'<input class="cfginput" id="token-input" placeholder="비워두면 인증 없이 동작" value="'+esc(S.scriptToken)+'" autocomplete="off" spellcheck="false" type="password">'
-    +'<div class="cfgrow">'
-    +'<button class="cfgbtn" onclick="testConn()">🔌 연결 테스트</button>'
-    +'<button class="cfgbtn pr" onclick="saveUrl()">✓ URL/토큰 저장</button>'
-    +'</div><div id="connst" class="connst"></div>'
-    +'</div>'
-    +'<div class="cfgcard">'
-    +'<div class="cfgtitle">📤 동기화 현황</div>'
-    +'<div class="srow"><span>타자 기록</span><span>'+S.blog.length+'타석</span></div>'
-    +'<div class="srow"><span>투수 타자 결과</span><span>'+S.pit_bf.length+'건</span></div>'
-    +'<div class="srow"><span>동기화 대기</span><span style="color:'+(pc>0?'#b45309':'#15803d')+'">'+(pc>0?pc+'건 ⚠':'✓')+'</span></div>'
-    +'<div class="srow"><span>마지막 동기화</span><span>'+lastStr+'</span></div>'
-    +'<button class="syncbig" onclick="doSync()" '+((!S.scriptUrl||S.syncing||pc===0)?'disabled':'')+'>☁ '+(S.syncing?'동기화 중...':'구글 시트로 전송 ('+pc+'건)')+'</button>'
-    +'<button onclick="loadFromSheets()" '+((!S.scriptUrl||S.loading)?'disabled':'')+' style="width:100%;margin-top:8px;padding:13px;background:var(--bg2);color:var(--navy);border:1.5px solid var(--navy);border-radius:var(--r);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">☁ '+(S.loading?'불러오는 중...':'구글 시트에서 불러오기')+'</button>'
-    +'<div style="margin-top:7px;font-size:11px;color:var(--txt2);line-height:1.6;background:var(--bg2);padding:8px 10px;border-radius:var(--r)">💡 <strong>새 기기에서 처음 접속할 때</strong> 사용하세요.</div>'
-    +'</div>'
+    +(isAdmin
+      ?'<div class="cfgcard">'
+        +'<div class="cfgtitle">☁ 구글 시트 연동</div>'
+        +'<div style="font-size:11px;color:var(--txt2);margin-bottom:8px;line-height:1.7">Apps Script 웹 앱 URL을 입력하세요.</div>'
+        +'<input class="cfginput" id="url-input" placeholder="https://script.google.com/macros/s/.../exec" value="'+esc(S.scriptUrl)+'" autocomplete="off" spellcheck="false">'
+        +'<div style="font-size:11px;color:var(--txt2);margin:4px 0 8px;line-height:1.7">🔑 인증 토큰 <span style="font-weight:400">(Code.gs의 AUTH_TOKEN과 동일하게 입력)</span></div>'
+        +'<input class="cfginput" id="token-input" placeholder="비워두면 인증 없이 동작" value="'+esc(S.scriptToken)+'" autocomplete="off" spellcheck="false" type="password">'
+        +'<div class="cfgrow"><button class="cfgbtn" onclick="testConn()">🔌 연결 테스트</button><button class="cfgbtn pr" onclick="saveUrl()">✓ URL/토큰 저장</button></div>'
+        +'<div id="connst" class="connst"></div>'
+        +'</div>'
+        +'<div class="cfgcard">'
+        +'<div class="cfgtitle">📤 동기화 현황</div>'
+        +'<div class="srow"><span>타자 기록</span><span>'+S.blog.length+'타석</span></div>'
+        +'<div class="srow"><span>투수 타자 결과</span><span>'+S.pit_bf.length+'건</span></div>'
+        +'<div class="srow"><span>동기화 대기</span><span style="color:'+(pc>0?'#b45309':'#15803d')+'">'+(pc>0?pc+'건 ⚠':'✓')+'</span></div>'
+        +'<div class="srow"><span>마지막 동기화</span><span>'+lastStr+'</span></div>'
+        +'<button class="syncbig" onclick="doSync()" '+((!S.scriptUrl||S.syncing||pc===0)?'disabled':'')+'>☁ '+(S.syncing?'동기화 중...':'구글 시트로 전송 ('+pc+'건)')+'</button>'
+        +'<button onclick="loadFromSheets()" '+((!S.scriptUrl||S.loading)?'disabled':'')+' style="width:100%;margin-top:8px;padding:13px;background:var(--bg2);color:var(--navy);border:1.5px solid var(--navy);border-radius:var(--r);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">☁ '+(S.loading?'불러오는 중...':'구글 시트에서 불러오기')+'</button>'
+        +'<div style="margin-top:7px;font-size:11px;color:var(--txt2);line-height:1.6;background:var(--bg2);padding:8px 10px;border-radius:var(--r)">💡 <strong>새 기기에서 처음 접속할 때</strong> 사용하세요.</div>'
+        +'</div>'
+      :'')
     +'<div class="cfgcard">'
     +'<div class="cfgtitle">⭐ 대표 선수 지정</div>'
     +'<div style="font-size:11px;color:var(--txt2);margin-bottom:10px;line-height:1.6">기록 탭 달력에 해당 선수의 타격/투수 기록을 표시합니다.</div>'
@@ -1203,15 +1281,18 @@ function rSettings(){
     +[...new Map(ROSTER.map(function(p){return[p.no,p];})).values()].map(function(p){return'<option value="'+p.no+'"'+(S.myPlayer===p.no?' selected':'')+'>'+p.name+' (#'+p.no+')</option>';}).join('')
     +'</select>'
     +'</div>'
-    +'<div class="cfgcard" style="margin-bottom:0">'
-    +'<div class="cfgtitle">👥 선수 관리</div>'
-    +'<div class="stabs" style="margin:0 0 10px">'
-    +'<button class="stab bat'+(S.rosterSub===0?' on':'')+'" onclick="S.rosterSub=0;r()">타자 ('+ROSTER.filter(p=>p.r==='b').length+'명)</button>'
-    +'<button class="stab pit'+(S.rosterSub===1?' on':'')+'" onclick="S.rosterSub=1;r()">투수 ('+ROSTER.filter(p=>p.r==='p').length+'명)</button>'
-    +'</div>'
-    +rRosterList()
-    +'<button onclick="showAddPlayerModal()" style="width:100%;padding:10px;margin-top:8px;border:1.5px dashed var(--bdr2);border-radius:var(--r);background:none;color:var(--navy);cursor:pointer;font-size:13px;font-weight:600;font-family:inherit">＋ 선수 추가</button>'
-    +'</div></div>';
+    +(isAdmin
+      ?'<div class="cfgcard" style="margin-bottom:0">'
+        +'<div class="cfgtitle">👥 선수 관리</div>'
+        +'<div class="stabs" style="margin:0 0 10px">'
+        +'<button class="stab bat'+(S.rosterSub===0?' on':'')+'" onclick="S.rosterSub=0;r()">타자 ('+ROSTER.filter(p=>p.r==='b').length+'명)</button>'
+        +'<button class="stab pit'+(S.rosterSub===1?' on':'')+'" onclick="S.rosterSub=1;r()">투수 ('+ROSTER.filter(p=>p.r==='p').length+'명)</button>'
+        +'</div>'
+        +rRosterList()
+        +'<button onclick="showAddPlayerModal()" style="width:100%;padding:10px;margin-top:8px;border:1.5px dashed var(--bdr2);border-radius:var(--r);background:none;color:var(--navy);cursor:pointer;font-size:13px;font-weight:600;font-family:inherit">＋ 선수 추가</button>'
+        +'</div>'
+      :'')
+    +'</div>';
 }
 function rRosterList(){
   const type=S.rosterSub===0?'b':'p';
@@ -1222,7 +1303,7 @@ function rRosterList(){
     h+='<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--bdr)">'
       +'<div style="width:28px;height:28px;border-radius:50%;background:'+(type==='b'?'var(--navy)':'var(--red)')+';color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+p.no+'</div>'
       +'<div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--txt)">'+esc(p.name)+'</div><div style="font-size:11px;color:var(--txt2)">'+esc(p.pos)+'</div></div>'
-      +'<button onclick="showEditPlayerModal('+p.no+',\''+p.r+'\')" style="background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:5px 10px;font-size:12px;color:var(--txt2);cursor:pointer;font-family:inherit">✏ 편집</button>'
+      +'<button onclick="showEditPlayerModal('+p.no+',&apos;'+p.r+'&apos;)" style="background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:5px 10px;font-size:12px;color:var(--txt2);cursor:pointer;font-family:inherit">✏ 편집</button>'
       +'</div>';
   });
   return h;
@@ -1387,8 +1468,8 @@ function showEditPlayerModal(no,role){
     +'<div class="mlbl">이름</div><input type="text" id="ep-name" value="'+esc(p.name)+'" maxlength="10">'
     +'<div class="mlbl">포지션</div><input type="text" id="ep-pos" value="'+esc(p.pos)+'" maxlength="5" placeholder="'+(role==='b'?'1B, SS, LF 등':'P')+'">'
     +'<div class="mbtns">'
-    +'<button class="mcancel" onclick="deletePlayer('+no+',\''+role+'\')" style="background:#FDEDEC;color:var(--red);border-color:#F5B7B1;flex:1">삭제</button>'
-    +'<button class="mok" onclick="confirmEditPlayer('+no+',\''+role+'\')" style="flex:2">저장</button>'
+    +'<button class="mcancel" onclick="deletePlayer('+no+',&apos;'+role+'&apos;)" style="background:#FDEDEC;color:var(--red);border-color:#F5B7B1;flex:1">삭제</button>'
+    +'<button class="mok" onclick="confirmEditPlayer('+no+',&apos;'+role+'&apos;)" style="flex:2">저장</button>'
     +'</div></div></div>';
   setTimeout(()=>document.getElementById('ep-name').focus(),100);
 }
@@ -1418,7 +1499,7 @@ function showAddPlayerModal(){
     +'<div class="mlbl">이름</div><input type="text" id="ap-name" placeholder="선수 이름" maxlength="10">'
     +'<div class="mlbl">포지션</div><input type="text" id="ap-pos" placeholder="'+(type==='b'?'1B, 2B, SS, LF, CF, RF, C, DH':'P')+'" maxlength="5">'
     +'<div class="mbtns"><button class="mcancel" onclick="closeModal()">취소</button>'
-    +'<button class="mok" onclick="confirmAddPlayer(\''+type+'\')">추가</button></div></div></div>';
+    +'<button class="mok" onclick="confirmAddPlayer(&apos;'+type+'&apos;)">추가</button></div></div></div>';
   setTimeout(()=>document.getElementById('ap-name').focus(),100);
 }
 function confirmAddPlayer(type){
@@ -1680,7 +1761,7 @@ async function loadFromSheets(){
   S.loading=false;r();
 }
 
-document.addEventListener('keydown',function(e){if(e.key==='Enter'&&document.getElementById('m-opp'))confirmGame();});
+document.addEventListener('keydown',function(e){if(e.key!=='Enter')return;if(document.getElementById('pin-input')===document.activeElement){doLogin();return;}if(document.getElementById('m-opp'))confirmGame();});
 load();r();
 </script>
 </body>
