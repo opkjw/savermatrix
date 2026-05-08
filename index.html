@@ -527,15 +527,15 @@ function renderSetup(){
       +'<button class="su-skip" onclick="S.setupStep=2;renderSetup()">건너뛰기</button>';
   } else if(step===2){
     body='<div class="su-icon">☁</div>'
-      +'<div class="su-title">클라우드 연동<br><span style="font-size:18px;font-weight:400;opacity:.65">(선택사항)</span></div>'
-      +'<div class="su-desc">구글 시트 URL을 연결하면<br>다기기 동기화와 PIN 로그인이<br>활성화됩니다</div>'
+      +'<div class="su-title">클라우드 연동</div>'
+      +'<div class="su-desc">클라우드 연동으로 다기기<br>동기화를 활성화합니다</div>'
       +'<div class="su-field">'
       +'<div class="su-lbl">Apps Script URL</div>'
       +'<input class="su-input" id="su-url" type="url" placeholder="https://script.google.com/macros/s/.../exec" value="'+esc(S.scriptUrl)+'" autocomplete="off" spellcheck="false">'
       +'</div>'
       +'<div class="su-connst" id="su-connst"></div>';
     actions='<button class="su-next" onclick="saveSetupUrl()">저장 및 다음</button>'
-      +'<button class="su-skip" onclick="S.setupStep=3;renderSetup()">나중에 설정</button>';
+      +'<button class="su-skip" onclick="S.setupStep=3;renderSetup()">건너뛰기</button>';
   } else {
     body='<div class="su-icon">🎉</div>'
       +'<div class="su-title">모든 준비가<br>완료됐습니다!</div>'
@@ -559,7 +559,12 @@ function saveSetupSchool(){
 function saveSetupUrl(){
   var el=document.getElementById('su-url');
   var url=el?el.value.trim():'';
-  if(url){S.scriptUrl=url;save();}
+  if(!url){
+    var st=document.getElementById('su-connst');
+    if(st){st.textContent='⚠ URL을 입력해주세요.';st.style.color='#fca5a5';}
+    return;
+  }
+  S.scriptUrl=url;save();
   S.setupStep=3;renderSetup();
 }
 function finishSetup(){
