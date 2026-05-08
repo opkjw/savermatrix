@@ -236,7 +236,7 @@ let S={
   game:null,gcnt:1,games:[],
   blog:[],pit_bf:[],pit_runs:[],
   // 동기화
-  scriptUrl:"",lastSync:null,syncing:false,loading:false,rosterDirty:false,syncedIds:new Set(),deletedGids:[],
+  scriptUrl:"",scriptToken:"",lastSync:null,syncing:false,loading:false,rosterDirty:false,syncedIds:new Set(),deletedGids:[],
 };
 
 // ── 저장/불러오기 ──────────────────────────────────────────
@@ -245,7 +245,7 @@ function load(){
     const raw=localStorage.getItem('bb_final');
     if(raw){
       const d=JSON.parse(raw);
-      ['blog','pit_bf','pit_runs','games','game','gcnt','scriptUrl','lastSync','rosterDirty','deletedGids','schoolName'].forEach(k=>{if(d[k]!==undefined)S[k]=d[k];});
+      ['blog','pit_bf','pit_runs','games','game','gcnt','scriptUrl','scriptToken','lastSync','rosterDirty','deletedGids','schoolName'].forEach(k=>{if(d[k]!==undefined)S[k]=d[k];});
       if(d.myPlayer!=null)S.myPlayer=parseInt(d.myPlayer)||null;
       S.syncedIds=new Set(d.syncedIds||[]);
       if(d.roster&&d.roster.length>0)ROSTER.splice(0,ROSTER.length,...d.roster);
@@ -258,10 +258,12 @@ function save(){
       blog:S.blog,pit_bf:S.pit_bf,pit_runs:S.pit_runs,games:S.games,
       game:S.game,gcnt:S.gcnt,scriptUrl:S.scriptUrl,lastSync:S.lastSync,
       syncedIds:[...S.syncedIds],roster:ROSTER,rosterDirty:S.rosterDirty,myPlayer:S.myPlayer,
-      deletedGids:S.deletedGids,schoolName:S.schoolName,
+      deletedGids:S.deletedGids,schoolName:S.schoolName,scriptToken:S.scriptToken,
     }));
   }catch(e){console.error(e);}
 }
+
+function esc(s){if(s==null)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 function toast(m,type=''){
   const t=document.getElementById('toast');
@@ -396,8 +398,8 @@ function pendingCount(){
 function renderGHdr(){
   const pc=pendingCount();
   document.getElementById('ghdr').innerHTML=S.game
-    ?('<div class="ghdr"><div><div class="gh-title">vs '+S.game.opp+'</div>'
-      +'<div class="gh-sub">'+S.game.date+' · G'+String(S.game.no).padStart(2,'0')
+    ?('<div class="ghdr"><div><div class="gh-title">vs '+esc(S.game.opp)+'</div>'
+      +'<div class="gh-sub">'+esc(S.game.date)+' · G'+String(S.game.no).padStart(2,'0')
       +(S.game.type==='P'?' · <span style="background:rgba(255,255,255,.25);border-radius:3px;padding:1px 6px;font-size:10px">연습</span>':'')
       +'</div></div>'
       +'<div class="gh-right">'
@@ -447,7 +449,7 @@ function rRunInput(){
     const active=app.has(p.no);
     h+='<div class="runitem" id="rr-'+p.no+'" style="'+(active?'':'opacity:.4')+'">'
       +'<div class="runno" style="background:'+(active?'var(--navy)':'#9ca3af')+'">'+p.no+'</div>'
-      +'<div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--txt)">'+p.name+'</div>'
+      +'<div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--txt)">'+esc(p.name)+'</div>'
       +'<div style="font-size:11px;color:var(--txt2)">'+(active?'이번 경기 '+runs+'득점':'미출전')+'</div></div>'
       +'<button class="runbtn" style="background:var(--navy)" onclick="addBatRun('+p.no+')">+ 득점</button>'
       +'</div>';
@@ -459,7 +461,7 @@ function rBatPSel(){
   ROSTER.filter(p=>p.r==='b').forEach(p=>{
     h+='<button class="pbtn'+(S.bp===p.no?' sel-b':'')+'" onclick="selBat('+p.no+')">'
       +'<div class="pno b">'+p.no+'</div>'
-      +'<div><div class="pn">'+p.name+'</div><div class="pp">'+p.pos+'</div></div>'
+      +'<div><div class="pn">'+esc(p.name)+'</div><div class="pp">'+esc(p.pos)+'</div></div>'
       +'</button>';
   });
   return h+'</div>';
@@ -469,7 +471,7 @@ function rOCSel(mode){
   const p=isP?ROSTER.find(x=>x.no===S.curPit):ROSTER.find(x=>x.no===S.bp);
   if(!p)return'<div class="empty">선수를 먼저 선택하세요</div>';
   let h='<div class="shdr"><button class="back" onclick="'+(isP?'S.ps=0':'S.bs=0')+';r()">←</button>'
-    +'<div><div class="s-title">'+p.name+' <span style="font-size:11px;color:var(--txt2)">#'+p.no+'</span></div>'
+    +'<div><div class="s-title">'+esc(p.name)+' <span style="font-size:11px;color:var(--txt2)">#'+p.no+'</span></div>'
     +'<div class="s-sub">'+(isP?'상대 타자 결과 입력':'타석 결과 선택')+'</div></div></div>';
   h+='<div class="ocsec"><div class="oclbl">안타 / 출루</div><div class="ocgrid">';
   [...OC_HIT,...OC_OB].forEach(o=>{
@@ -491,7 +493,7 @@ function rExtras(){
   const zoneOF=['LF','LC','CF','RC','RF'];
   const zoneIF=['3B','SS','2B','1B'];
   let h='<div class="shdr"><button class="back" onclick="S.bs=1;r()">←</button>'
-    +'<div style="flex:1"><div class="s-title">'+p.name+'</div><div class="s-sub">추가 기록 입력</div></div>'
+    +'<div style="flex:1"><div class="s-title">'+esc(p.name)+'</div><div class="s-sub">추가 기록 입력</div></div>'
     +'<span class="badge" style="background:'+oc.bg+';color:'+oc.fg+'">'+oc.l+'</span></div>'
     +'<div class="callout"><strong>득점</strong>은 홈 밟는 순간 <strong>득점 처리</strong> 탭에서 입력하세요.</div>'
     +'<div class="extras" style="grid-template-columns:'+(showRbi?'repeat(3,1fr)':'repeat(2,1fr)')+'">';
@@ -525,7 +527,7 @@ function rPitTab(){
     ROSTER.filter(p=>p.r==='p').forEach(p=>{
       h+='<button class="pbtn'+(S.curPit===p.no?' sel-r':'')+'" onclick="selPit('+p.no+')">'
         +'<div class="pno r">'+p.no+'</div>'
-        +'<div><div class="pn">'+p.name+'</div><div class="pp">'+p.pos+'</div></div>'
+        +'<div><div class="pn">'+esc(p.name)+'</div><div class="pp">'+esc(p.pos)+'</div></div>'
         +'</button>';
     });
     return h+'</div>';
@@ -536,7 +538,7 @@ function rPitTab(){
   let h='<div class="pcard">'
     +'<div class="pcard-hdr"><div class="pcard-l">'
     +'<div class="pav">'+p.no+'</div>'
-    +'<div><div class="pcard-name">'+p.name+'</div><div class="pcard-role">'+p.pos+' · 투구 중</div></div>'
+    +'<div><div class="pcard-name">'+esc(p.name)+'</div><div class="pcard-role">'+esc(p.pos)+' · 투구 중</div></div>'
     +'</div><button class="pchg" onclick="S.curPit=null;r()">⇄ 교체</button></div>'
     +'<div class="pstats">'
     +['<div class="pstat em"><div class="pstat-val">'+st.ipd+'</div><div class="pstat-lbl">IP</div></div>',
@@ -668,7 +670,7 @@ function rLog(){
       h+='<div class="cal-summary">';
       h+='<div class="cal-sum-date">';
       if(sd)h+=parseInt(sdParts[1])+'월 '+parseInt(sdParts[2])+'일 ('+sdow+') &nbsp;';
-      h+='vs '+selGame.opp;
+      h+='vs '+esc(selGame.opp);
       h+=' <span style="background:'+(isOffSel?'#EBF0FB':'#dcfce7')+';color:'+(isOffSel?'var(--navy)':'#15803d')+';border-radius:4px;padding:1px 8px;font-size:11px;font-weight:600">'+(isOffSel?'정식':'연습')+'</span>';
       if(isCurSel)h+=' <span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 8px;font-size:11px;font-weight:700">진행중</span>';
       h+='<button onclick="showEditGameModal(\''+selGid+'\')" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:3px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit;flex-shrink:0">✏ 수정</button>';
@@ -713,7 +715,7 @@ function rLog(){
       var pCnt=S.pit_bf.filter(function(e){return e.gid===g.id;}).length;
       h+='<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid #fcd34d">';
       h+='<div style="flex:1">';
-      h+='<div style="font-size:13px;font-weight:600;color:var(--txt)">vs '+(g.opp||'?')+'</div>';
+      h+='<div style="font-size:13px;font-weight:600;color:var(--txt)">vs '+esc(g.opp||'?')+'</div>';
       h+='<div style="font-size:11px;color:var(--txt2)">타석 '+bCnt+' · 투수 '+pCnt+'타자</div>';
       h+='</div>';
       h+='<button onclick="showEditGameModal(\''+g.id+'\')" style="background:var(--navy);color:#fff;border:none;border-radius:var(--r);padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">날짜 입력</button>';
@@ -751,7 +753,7 @@ function rLog(){
       h+='<div class="logitem">'
         +'<div class="logbadge" style="background:'+oc.bg+';color:'+oc.fg+';font-size:10px">'+oc.l+'</div>'
         +'<div style="flex:1;min-width:0">'
-        +'<div class="logplayer">'+e.pn+' <span style="font-size:10px;color:'+(sy?'#15803d':'#f59e0b')+'">'+(sy?'✓':'●')+'</span></div>'
+        +'<div class="logplayer">'+esc(e.pn)+' <span style="font-size:10px;color:'+(sy?'#15803d':'#f59e0b')+'">'+(sy?'✓':'●')+'</span></div>'
         +'<div class="logdetail">'+(ex.length?ex.join(' · '):'—')+'</div>'
         +'</div>'
         +'<button onclick="showEditBatModal(\''+e.id+'\')" style="background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:5px 8px;font-size:11px;color:var(--txt2);cursor:pointer;margin-right:4px;font-family:inherit">✏</button>'
@@ -769,7 +771,7 @@ function rLog(){
       h+='<div class="logitem" style="background:var(--bg2);flex-direction:column;align-items:stretch;gap:5px">'
         +'<div style="display:flex;align-items:center;gap:8px">'
         +'<div class="logbadge" style="background:var(--red);color:#fff;font-size:11px">#'+pno+'</div>'
-        +'<div style="flex:1"><div class="logplayer">'+p.name+'</div>'
+        +'<div style="flex:1"><div class="logplayer">'+esc(p.name)+'</div>'
         +'<div class="logdetail">'+st.ipd+'이닝 · '+st.h+'H · '+st.er+'ER · '+st.bb+'BB · '+st.k+'K</div></div>'
         +'</div>'
         +'<div style="padding-left:46px;display:flex;flex-direction:column;gap:4px">';
@@ -862,7 +864,7 @@ function rLogMonthly(allGames,calMon,calY,calM){
     h+='<div style="min-width:0;flex:1">';
     h+='<div style="font-size:13px;font-weight:600;color:var(--txt)">';
     if(sd)h+=parseInt(sdParts[2])+'일('+sdow+') ';
-    h+='vs '+g.opp;
+    h+='vs '+esc(g.opp);
     h+=' <span style="background:'+(isOff?'#EBF0FB':'#dcfce7')+';color:'+(isOff?'var(--navy)':'#15803d')+';border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">'+(isOff?'정식':'연습')+'</span>';
     h+='</div>';
     if(S.myPlayer){
@@ -910,7 +912,7 @@ function rBatTile(s,myNo){
   h+='<div style="padding:9px 13px;background:'+(isMy?'#EBF0FB':'var(--bg2)')+';display:flex;align-items:center;justify-content:space-between">';
   h+='<div style="display:flex;align-items:center;gap:7px">';
   if(isMy)h+='<span style="background:var(--navy);color:#fff;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">대표</span>';
-  h+='<span style="font-size:14px;font-weight:700;color:var(--txt)">'+s.name+'</span></div>';
+  h+='<span style="font-size:14px;font-weight:700;color:var(--txt)">'+esc(s.name)+'</span></div>';
   h+='<span style="font-size:11px;color:var(--txt2)">'+s.pa+'PA · '+s.g+'G</span></div>';
   h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--bdr);border-top:1px solid var(--bdr)">';
   hero.forEach(function(d){h+=rStatTile(d,true);});
@@ -927,7 +929,7 @@ function rPitTile(s,myNo){
   h+='<div style="padding:9px 13px;background:'+(isMy?'#EBF0FB':'var(--bg2)')+';display:flex;align-items:center;justify-content:space-between">';
   h+='<div style="display:flex;align-items:center;gap:7px">';
   if(isMy)h+='<span style="background:var(--navy);color:#fff;border-radius:4px;padding:1px 7px;font-size:10px;font-weight:700">대표</span>';
-  h+='<span style="font-size:14px;font-weight:700;color:var(--txt)">'+s.name+'</span></div>';
+  h+='<span style="font-size:14px;font-weight:700;color:var(--txt)">'+esc(s.name)+'</span></div>';
   h+='<span style="font-size:11px;color:var(--txt2)">'+s.ipd+'IP · '+s.g+'G</span></div>';
   h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--bdr);border-top:1px solid var(--bdr)">';
   hero.forEach(function(d){h+=rStatTile(d,true);});
@@ -936,7 +938,7 @@ function rPitTile(s,myNo){
   return h+'</div></div>';
 }
 function rNoRecMsg(name,type){
-  return'<div style="margin:0 12px 12px;padding:18px;background:var(--card);border:1px solid var(--bdr);border-radius:var(--rl);text-align:center;color:var(--txt2);font-size:13px">'+name+'의 '+type+' 기록이 없습니다.</div>';
+  return'<div style="margin:0 12px 12px;padding:18px;background:var(--card);border:1px solid var(--bdr);border-radius:var(--rl);text-align:center;color:var(--txt2);font-size:13px">'+esc(name)+'의 '+type+' 기록이 없습니다.</div>';
 }
 function rStats(){
   const sf=S.statsFilter||'all';
@@ -983,7 +985,7 @@ function rStats(){
     bs.forEach(s=>{
       const sel=Number(s.no)===activeSprayNo;
       h+='<tr style="cursor:pointer" onclick="setSprayPlayer('+Number(s.no)+')">'
-        +'<td style="text-align:left;font-weight:700;color:'+(sel?'var(--navy)':'var(--txt)')+';text-decoration:'+(sel?'underline':'none')+'">'+s.name+(sel?' 📍':'')+'</td>'
+        +'<td style="text-align:left;font-weight:700;color:'+(sel?'var(--navy)':'var(--txt)')+';text-decoration:'+(sel?'underline':'none')+'">'+esc(s.name)+(sel?' 📍':'')+'</td>'
         +'<td>'+s.pa+'</td><td>'+s.ab+'</td><td>'+s.h+'</td><td>'+s.d2+'</td><td>'+s.d3+'</td>'
         +'<td style="color:var(--red);font-weight:600">'+s.hr+'</td>'
         +'<td>'+s.rbi+'</td><td>'+s.run+'</td><td>'+s.bb+'</td><td>'+s.so+'</td><td>'+s.sb+'</td></tr>';
@@ -1010,7 +1012,7 @@ function rStats(){
       +'<th style="color:#93c5fd">K</th><th style="color:#fca5a5">HR</th><th>ER</th><th>R</th>'
       +'</tr></thead><tbody>';
     ps.forEach(s=>{
-      h+='<tr><td style="text-align:left;font-weight:700">'+s.name+'</td>'
+      h+='<tr><td style="text-align:left;font-weight:700">'+esc(s.name)+'</td>'
         +'<td>'+s.g+'</td><td>'+s.ipd+'</td><td>'+s.h+'</td><td>'+s.bb+'</td>'
         +'<td style="color:#1d4ed8;font-weight:600">'+s.k+'</td>'
         +'<td style="color:var(--red)">'+s.hr+'</td>'
@@ -1122,7 +1124,7 @@ function rSprayChart(pno){
   // 홈플레이트
   h+='<polygon points="'+cx+','+(cy-8)+' '+(cx+6)+','+(cy+1)+' '+(cx+3)+','+(cy+7)+' '+(cx-3)+','+(cy+7)+' '+(cx-6)+','+(cy+1)+'" fill="white" opacity=".9"/>';
   // 제목
-  h+='<text x="175" y="12" text-anchor="middle" fill="white" font-size="13" font-weight="700" opacity=".9">'+playerName+'의 스프레이 차트</text>';
+  h+='<text x="175" y="12" text-anchor="middle" fill="white" font-size="13" font-weight="700" opacity=".9">'+esc(playerName)+'의 스프레이 차트</text>';
   h+='<text x="175" y="25" text-anchor="middle" fill="rgba(255,255,255,.65)" font-size="11">'+total+'타구 방향 기록 / 전체 '+blog.length+'타석</text>';
 
   // 하단 요약 통계
@@ -1168,17 +1170,19 @@ function rSettings(){
     +'<div class="cfgtitle">🏫 학교 / 팀 정보</div>'
     +'<div style="font-size:11px;color:var(--txt2);margin-bottom:8px;line-height:1.7">학교명을 입력하면 앱 상단에 표시됩니다.</div>'
     +'<div style="display:flex;gap:8px">'
-    +'<input class="cfginput" id="school-input" placeholder="예: 서울초등학교" maxlength="30" value="'+S.schoolName+'" style="flex:1;margin-bottom:0">'
+    +'<input class="cfginput" id="school-input" placeholder="예: 서울초등학교" maxlength="30" value="'+esc(S.schoolName)+'" style="flex:1;margin-bottom:0">'
     +'<button class="cfgbtn pr" onclick="saveSchoolName()" style="white-space:nowrap;flex-shrink:0">✓ 저장</button>'
     +'</div>'
     +'</div>'
     +'<div class="cfgcard">'
     +'<div class="cfgtitle">☁ 구글 시트 연동</div>'
     +'<div style="font-size:11px;color:var(--txt2);margin-bottom:8px;line-height:1.7">Apps Script 웹 앱 URL을 입력하세요.</div>'
-    +'<input class="cfginput" id="url-input" placeholder="https://script.google.com/macros/s/.../exec" value="'+S.scriptUrl+'" autocomplete="off" spellcheck="false">'
+    +'<input class="cfginput" id="url-input" placeholder="https://script.google.com/macros/s/.../exec" value="'+esc(S.scriptUrl)+'" autocomplete="off" spellcheck="false">'
+    +'<div style="font-size:11px;color:var(--txt2);margin:4px 0 8px;line-height:1.7">🔑 인증 토큰 <span style="font-weight:400">(Code.gs의 AUTH_TOKEN과 동일하게 입력)</span></div>'
+    +'<input class="cfginput" id="token-input" placeholder="비워두면 인증 없이 동작" value="'+esc(S.scriptToken)+'" autocomplete="off" spellcheck="false" type="password">'
     +'<div class="cfgrow">'
     +'<button class="cfgbtn" onclick="testConn()">🔌 연결 테스트</button>'
-    +'<button class="cfgbtn pr" onclick="saveUrl()">✓ URL 저장</button>'
+    +'<button class="cfgbtn pr" onclick="saveUrl()">✓ URL/토큰 저장</button>'
     +'</div><div id="connst" class="connst"></div>'
     +'</div>'
     +'<div class="cfgcard">'
@@ -1217,7 +1221,7 @@ function rRosterList(){
   players.forEach(p=>{
     h+='<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--bdr)">'
       +'<div style="width:28px;height:28px;border-radius:50%;background:'+(type==='b'?'var(--navy)':'var(--red)')+';color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+p.no+'</div>'
-      +'<div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--txt)">'+p.name+'</div><div style="font-size:11px;color:var(--txt2)">'+p.pos+'</div></div>'
+      +'<div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--txt)">'+esc(p.name)+'</div><div style="font-size:11px;color:var(--txt2)">'+esc(p.pos)+'</div></div>'
       +'<button onclick="showEditPlayerModal('+p.no+',\''+p.r+'\')" style="background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:5px 10px;font-size:12px;color:var(--txt2);cursor:pointer;font-family:inherit">✏ 편집</button>'
       +'</div>';
   });
@@ -1319,7 +1323,7 @@ function renderEditModal(){
   const isBIP=BIP_OC.includes(es.oc);
   let h='<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">'
     +'<h3>'+(isBat?'타자':'투수')+' 기록 편집</h3>'
-    +'<div style="font-size:12px;color:var(--txt2);margin-bottom:12px">'+e.pn+' · '+e.date+' vs '+e.opp+'</div>';
+    +'<div style="font-size:12px;color:var(--txt2);margin-bottom:12px">'+esc(e.pn)+' · '+esc(e.date)+' vs '+esc(e.opp)+'</div>';
   if(isPitRun){
     h+='<div class="em-lbl">실점 종류</div>'
       +'<div style="display:flex;gap:10px;margin-bottom:10px">'
@@ -1380,8 +1384,8 @@ function showEditPlayerModal(no,role){
     '<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">'
     +'<h3>선수 편집</h3>'
     +'<div class="mlbl">등번호</div><input type="number" id="ep-no" min="0" max="99" value="'+p.no+'">'
-    +'<div class="mlbl">이름</div><input type="text" id="ep-name" value="'+p.name+'" maxlength="10">'
-    +'<div class="mlbl">포지션</div><input type="text" id="ep-pos" value="'+p.pos+'" maxlength="5" placeholder="'+(role==='b'?'1B, SS, LF 등':'P')+'">'
+    +'<div class="mlbl">이름</div><input type="text" id="ep-name" value="'+esc(p.name)+'" maxlength="10">'
+    +'<div class="mlbl">포지션</div><input type="text" id="ep-pos" value="'+esc(p.pos)+'" maxlength="5" placeholder="'+(role==='b'?'1B, SS, LF 등':'P')+'">'
     +'<div class="mbtns">'
     +'<button class="mcancel" onclick="deletePlayer('+no+',\''+role+'\')" style="background:#FDEDEC;color:var(--red);border-color:#F5B7B1;flex:1">삭제</button>'
     +'<button class="mok" onclick="confirmEditPlayer('+no+',\''+role+'\')" style="flex:2">저장</button>'
@@ -1582,15 +1586,18 @@ function confirmGame(){
 
 // ── URL / 동기화 / 불러오기 ───────────────────────────────
 function saveSchoolName(){S.schoolName=document.getElementById('school-input').value.trim();save();toast('학교명 저장 완료','ok');r();}
-function saveUrl(){S.scriptUrl=document.getElementById('url-input').value.trim();save();toast('URL 저장 완료','ok');r();}
+function saveUrl(){S.scriptUrl=document.getElementById('url-input').value.trim();S.scriptToken=document.getElementById('token-input').value.trim();save();toast('URL/토큰 저장 완료','ok');r();}
 async function testConn(){
   const url=document.getElementById('url-input').value.trim();
+  const tok=document.getElementById('token-input').value.trim();
   if(!url){toast('URL을 먼저 입력하세요','err');return;}
   const st=document.getElementById('connst');st.style.display='block';st.textContent='연결 확인 중...';st.style.color='#6b7280';
   try{
-    const res=await fetch(url,{method:'GET'});
-    if(res.ok){st.textContent='✓ 연결 성공!';st.style.color='#15803d';}
-    else{st.textContent='⚠ 응답 오류 ('+res.status+')';st.style.color='#b45309';}
+    const res=await fetch(url+(tok?'?token='+encodeURIComponent(tok):''),{method:'GET'});
+    const data=await res.json();
+    if(data.status==='ok'){st.textContent='✓ 연결 성공!';st.style.color='#15803d';}
+    else if(data.message&&data.message.includes('인증')){st.textContent='✗ 인증 실패 - 토큰 확인';st.style.color='#991b1b';}
+    else{st.textContent='⚠ 응답 오류';st.style.color='#b45309';}
   }catch(e){st.textContent='✗ 연결 실패 - URL 확인';st.style.color='#991b1b';}
 }
 async function doSync(){
@@ -1605,7 +1612,7 @@ async function doSync(){
   try{
     if(bP.length||pfP.length||prP.length||gP.length||dG.length){
       const res=await fetch(S.scriptUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},
-        body:JSON.stringify({type:'sync',games:gP,bat_log:bP,pit_bf:pfP,pit_runs:prP,deleted_gids:dG})});
+        body:JSON.stringify({type:'sync',token:S.scriptToken||'',games:gP,bat_log:bP,pit_bf:pfP,pit_runs:prP,deleted_gids:dG})});
       const data=await res.json();
       if(data.status!=='ok')throw new Error(data.message||'서버 오류');
       bP.forEach(e=>S.syncedIds.add(e.id));
@@ -1616,7 +1623,7 @@ async function doSync(){
     }
     if(S.rosterDirty){
       const rp=encodeURIComponent(JSON.stringify(ROSTER));
-      const rr=await fetch(S.scriptUrl+'?action=saveRoster&data='+rp);
+      const rr=await fetch(S.scriptUrl+'?action=saveRoster&data='+rp+(S.scriptToken?'&token='+encodeURIComponent(S.scriptToken):''));
       const rd=await rr.json();
       if(rd.status==='ok')S.rosterDirty=false;
     }
@@ -1631,7 +1638,7 @@ async function loadFromSheets(){
   if(!S.scriptUrl){toast('먼저 URL을 저장해주세요','err');return;}
   S.loading=true;r();
   try{
-    const res=await fetch(S.scriptUrl+'?action=fetch');
+    const res=await fetch(S.scriptUrl+'?action=fetch'+(S.scriptToken?'&token='+encodeURIComponent(S.scriptToken):''));
     const data=await res.json();
     if(data.status!=='ok')throw new Error(data.message||'오류');
 

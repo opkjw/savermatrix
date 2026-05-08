@@ -1,6 +1,11 @@
 // Code.gs — Baseball Savermatrix Google Apps Script 백엔드
 // Google Apps Script 에디터에 전체 복사 후 저장 → 새 배포(웹 앱) → 누구나 접근으로 배포
 
+// ── 인증 토큰 설정 ──────────────────────────────────────────
+// 빈 문자열('')이면 인증 없이 동작 (기존 방식 유지)
+// 값을 설정하면 앱 설정의 토큰과 일치해야만 접근 가능
+const AUTH_TOKEN = '';
+
 // ── 시트 이름 상수 ──────────────────────────────────────────
 const SHEETS = {
   games:    'games',
@@ -9,6 +14,12 @@ const SHEETS = {
   pit_runs: 'pit_runs',
   roster:   'roster'
 };
+
+// ── 유틸: 토큰 인증 검사 ───────────────────────────────────
+function checkAuth(token) {
+  if (!AUTH_TOKEN) return true;          // 토큰 미설정이면 누구나 허용
+  return token === AUTH_TOKEN;
+}
 
 // ── 유틸: 시트 가져오기 (없으면 생성) ─────────────────────
 function getSheet(name) {
@@ -92,10 +103,8 @@ function upsertRows(sheetName, items) {
     const row = hdrs.map(h => (item[h] !== undefined && item[h] !== null) ? item[h] : '');
     const existingRowNum = idColIdx >= 0 ? idRowMap[String(item.id)] : null;
     if (existingRowNum) {
-      // 업데이트
       sh.getRange(existingRowNum, 1, 1, row.length).setValues([row]);
     } else {
-      // 추가
       const lastRow = sh.getLastRow();
       sh.getRange(lastRow + 1, 1, 1, row.length).setValues([row]);
       if (idColIdx >= 0) idRowMap[String(item.id)] = lastRow + 1;
@@ -128,6 +137,9 @@ function deleteByGid(sheetName, gids) {
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
+    if (!checkAuth(data.token || '')) {
+      return out({ status: 'error', message: '인증 실패: 올바른 토큰이 필요합니다.' });
+    }
     if (data.type === 'sync') {
       // 삭제 먼저 처리 (새 데이터 upsert 전에)
       const delGids = data.deleted_gids || [];
@@ -152,6 +164,10 @@ function doPost(e) {
 function doGet(e) {
   const action = e.parameter.action;
   try {
+    if (!checkAuth(e.parameter.token || '')) {
+      return out({ status: 'error', message: '인증 실패: 올바른 토큰이 필요합니다.' });
+    }
+
     // 선수 명단 저장
     if (action === 'saveRoster') {
       const roster = JSON.parse(decodeURIComponent(e.parameter.data));
