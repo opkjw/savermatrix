@@ -21,7 +21,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans KR'
 .gh-icon{background:none;border:none;color:rgba(255,255,255,.75);font-size:20px;cursor:pointer;padding:2px;line-height:1;position:relative}
 .pdot{position:absolute;top:1px;right:1px;width:7px;height:7px;border-radius:50%;background:#f59e0b;border:1.5px solid var(--navy)}
 .tabbar{display:flex;background:var(--card);border-top:1px solid var(--bdr);flex-shrink:0;padding-bottom:var(--sfb)}
-.tab{flex:1;padding:8px 2px 10px;text-align:center;border:none;background:none;cursor:pointer;font-size:10px;color:var(--txt2);line-height:1.3;font-family:inherit}
+.tab{flex:1;padding:8px 2px 10px;text-align:center;border:none;background:none;cursor:pointer;font-size:11px;color:var(--txt2);line-height:1.3;font-family:inherit}
 .tab i{display:block;font-size:22px;margin-bottom:2px}
 .tab.on{color:var(--navy)}
 .content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
@@ -39,7 +39,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans KR'
 .pstat{flex:1;text-align:center;padding:0 4px}
 .pstat:not(:last-child){border-right:1px solid var(--bdr)}
 .pstat-val{font-size:20px;font-weight:600;color:var(--txt);line-height:1}
-.pstat-lbl{font-size:10px;color:var(--txt2);margin-top:3px}
+.pstat-lbl{font-size:11px;color:var(--txt2);margin-top:3px}
 .pstat.em .pstat-val{color:var(--red)}
 .pgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 12px}
 .pbtn{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:10px 11px;cursor:pointer;display:flex;align-items:center;gap:9px;min-height:52px;width:100%;text-align:left;font-family:inherit}
@@ -111,7 +111,7 @@ tr:nth-child(even) td{background:var(--bg2)}
 .cfginput{width:100%;border:1px solid var(--bdr2);border-radius:var(--r);padding:10px 11px;font-size:12px;font-family:'SF Mono',Consolas,monospace;color:var(--txt);background:var(--bg2);outline:none;margin-bottom:8px;-webkit-appearance:none}
 .cfginput:focus{border-color:var(--navy)}
 .cfgrow{display:flex;gap:7px}
-.cfgbtn{flex:1;padding:9px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--bg2);color:var(--txt);cursor:pointer;font-size:12px;text-align:center;font-family:inherit}
+.cfgbtn{flex:1;padding:11px 9px;min-height:44px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--bg2);color:var(--txt);cursor:pointer;font-size:12px;text-align:center;font-family:inherit}
 .cfgbtn.pr{background:var(--navy);color:#fff;border-color:var(--navy)}
 .connst{display:none;margin-top:6px;font-size:11px}
 .srow{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:6px 0;border-bottom:1px solid var(--bdr)}
@@ -231,7 +231,7 @@ let S={
   // 기록
   logGameId:null,calMonth:null,myPlayer:null,
   // 설정
-  rosterSub:0,
+  rosterSub:0,schoolName:"",
   // 데이터
   game:null,gcnt:1,games:[],
   blog:[],pit_bf:[],pit_runs:[],
@@ -245,7 +245,7 @@ function load(){
     const raw=localStorage.getItem('bb_final');
     if(raw){
       const d=JSON.parse(raw);
-      ['blog','pit_bf','pit_runs','games','game','gcnt','scriptUrl','lastSync','rosterDirty','deletedGids'].forEach(k=>{if(d[k]!==undefined)S[k]=d[k];});
+      ['blog','pit_bf','pit_runs','games','game','gcnt','scriptUrl','lastSync','rosterDirty','deletedGids','schoolName'].forEach(k=>{if(d[k]!==undefined)S[k]=d[k];});
       if(d.myPlayer!=null)S.myPlayer=parseInt(d.myPlayer)||null;
       S.syncedIds=new Set(d.syncedIds||[]);
       if(d.roster&&d.roster.length>0)ROSTER.splice(0,ROSTER.length,...d.roster);
@@ -258,7 +258,7 @@ function save(){
       blog:S.blog,pit_bf:S.pit_bf,pit_runs:S.pit_runs,games:S.games,
       game:S.game,gcnt:S.gcnt,scriptUrl:S.scriptUrl,lastSync:S.lastSync,
       syncedIds:[...S.syncedIds],roster:ROSTER,rosterDirty:S.rosterDirty,myPlayer:S.myPlayer,
-      deletedGids:S.deletedGids,
+      deletedGids:S.deletedGids,schoolName:S.schoolName,
     }));
   }catch(e){console.error(e);}
 }
@@ -396,7 +396,7 @@ function pendingCount(){
 function renderGHdr(){
   const pc=pendingCount();
   document.getElementById('ghdr').innerHTML=S.game
-    ?('<div class="ghdr"><div><div class="gh-title">vs '+S.game.opp+'</div>'
+    ?('<div class="ghdr"><div><div class="gh-title">'+(S.schoolName?S.schoolName+' vs ':'')+S.game.opp+'</div>'
       +'<div class="gh-sub">'+S.game.date+' · G'+String(S.game.no).padStart(2,'0')
       +(S.game.type==='P'?' · <span style="background:rgba(255,255,255,.25);border-radius:3px;padding:1px 6px;font-size:10px">연습</span>':'')
       +'</div></div>'
@@ -405,7 +405,7 @@ function renderGHdr(){
       +'<button class="gh-btn" onclick="showGameModal()" style="background:rgba(255,255,255,.15)">변경</button>'
       +'<button class="gh-btn" onclick="endGame()" style="background:#c0392b;font-weight:700">■ 종료</button>'
       +'</div></div>')
-    :('<div class="ghdr"><div><div class="gh-title">⚾ 우리아이 야구 기록 Ball Matrix</div>'
+    :('<div class="ghdr"><div><div class="gh-title">⚾ '+(S.schoolName?S.schoolName+' 야구 기록':'우리아이 야구 기록 Ball Matrix')+'</div>'
       +'<div class="gh-sub">경기를 시작하세요</div></div>'
       +'<div class="gh-right">'
       +'<button class="gh-icon" onclick="setTab(4)">'+(pc>0?'☁<div class="pdot"></div>':'⚙')+'</button>'
@@ -982,7 +982,7 @@ function rStats(){
       +'</tr></thead><tbody>';
     bs.forEach(s=>{
       const sel=S.sprayPlayer?S.sprayPlayer===s.name:activeSpray===s.name;
-      h+='<tr style="cursor:pointer" onclick="setSprayPlayer(\''+s.name+'\')">'
+      h+='<tr style="cursor:pointer" onclick="setSprayPlayer(&apos;'+s.name+'&apos;)">'
         +'<td style="text-align:left;font-weight:700;color:'+(sel?'var(--navy)':'var(--txt)')+';text-decoration:'+(sel?'underline':'none')+'">'+s.name+(sel?' 📍':'')+'</td>'
         +'<td>'+s.pa+'</td><td>'+s.ab+'</td><td>'+s.h+'</td><td>'+s.d2+'</td><td>'+s.d3+'</td>'
         +'<td style="color:var(--red);font-weight:600">'+s.hr+'</td>'
@@ -1088,14 +1088,14 @@ function rSprayChart(playerName){
       var mid=(s.startDeg+s.endDeg)/2;
       var lp={x:cx+(r*0.62)*Math.sin(mid*Math.PI/180),y:cy-(r*0.62)*Math.cos(mid*Math.PI/180)};
       // % 텍스트 - 폰트 크기 조정
-      h+='<text x="'+f(lp.x)+'" y="'+f(lp.y)+'" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="10" font-weight="900" opacity=".95">'+pct+'%</text>';
+      h+='<text x="'+f(lp.x)+'" y="'+f(lp.y)+'" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="12" font-weight="900" opacity=".95">'+pct+'%</text>';
       // 타구수
       if(s.count>0){
-        h+='<text x="'+f(lp.x)+'" y="'+f(lp.y+15)+'" text-anchor="middle" dominant-baseline="middle" fill="rgba(255,255,255,.6)" font-size="10">'+s.count+'타구</text>';
+        h+='<text x="'+f(lp.x)+'" y="'+f(lp.y+15)+'" text-anchor="middle" dominant-baseline="middle" fill="rgba(255,255,255,.85)" font-size="11">'+s.count+'타구</text>';
       }
       // 구역 레이블 - 호 가장자리
       var ep={x:cx+(r*0.87)*Math.sin(mid*Math.PI/180),y:cy-(r*0.87)*Math.cos(mid*Math.PI/180)};
-      h+='<text x="'+f(ep.x)+'" y="'+f(ep.y)+'" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="9.5" font-weight="600" opacity="0.75">'+s.label+'</text>';
+      h+='<text x="'+f(ep.x)+'" y="'+f(ep.y)+'" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="11" font-weight="600" opacity="0.9">'+s.label+'</text>';
     });
   }
 
@@ -1114,7 +1114,7 @@ function rSprayChart(playerName){
   h+='<polygon points="'+cx+','+(cy-8)+' '+(cx+6)+','+(cy+1)+' '+(cx+3)+','+(cy+7)+' '+(cx-3)+','+(cy+7)+' '+(cx-6)+','+(cy+1)+'" fill="white" opacity=".9"/>';
   // 제목
   h+='<text x="175" y="12" text-anchor="middle" fill="white" font-size="13" font-weight="700" opacity=".9">'+playerName+'의 스프레이 차트</text>';
-  h+='<text x="175" y="25" text-anchor="middle" fill="rgba(255,255,255,.42)" font-size="9.5">'+total+'타구 방향 기록 / 전체 '+blog.length+'타석</text>';
+  h+='<text x="175" y="25" text-anchor="middle" fill="rgba(255,255,255,.65)" font-size="11">'+total+'타구 방향 기록 / 전체 '+blog.length+'타석</text>';
 
   // 하단 요약 통계
   var pull=sc[0].count+sc[1].count;
@@ -1124,19 +1124,19 @@ function rSprayChart(playerName){
   var cp=total>0?Math.round(ctr/total*100):0;
   var op=total>0?Math.round(oppo/total*100):0;
 
-  return '<div style="padding:0 12px 8px">'
+  return '<div id="spray-section" style="padding:0 12px 8px">'
     +'<div style="background:#111827;border-radius:14px;overflow:hidden;padding:12px 0 10px">'
     +'<div style="display:flex;align-items:center;justify-content:flex-end;padding:0 12px 6px">'
-    +'<button onclick="setSprayPlayer(&apos;'+playerName+'&apos;)" style="background:rgba(255,255,255,.15);border:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:13px;padding:4px 8px;border-radius:6px;line-height:1">✕</button>'
+    +'<button onclick="setSprayPlayer(&apos;'+playerName+'&apos;)" style="background:rgba(255,255,255,.15);border:none;color:rgba(255,255,255,.85);cursor:pointer;font-size:14px;padding:10px 14px;border-radius:6px;min-height:44px;line-height:1">✕</button>'
     +'</div>'
     +'<svg viewBox="0 0 350 215" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">'+h+'</svg>'
     // 범례
     +'<div style="display:flex;gap:8px;justify-content:center;margin:6px 0 8px;flex-wrap:wrap">'
-    +'<span style="font-size:10px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e74c3c"></span>당겨치기</span>'
-    +'<span style="font-size:10px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#f39c12"></span>유격수</span>'
-    +'<span style="font-size:10px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#f1c40f"></span>중앙</span>'
-    +'<span style="font-size:10px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#2ecc71"></span>2루수</span>'
-    +'<span style="font-size:10px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#16a085"></span>밀어치기</span>'
+    +'<span style="font-size:11px;color:rgba(255,255,255,.8);display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e74c3c"></span>당겨치기</span>'
+    +'<span style="font-size:11px;color:rgba(255,255,255,.8);display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#f39c12"></span>유격수</span>'
+    +'<span style="font-size:11px;color:rgba(255,255,255,.8);display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#f1c40f"></span>중앙</span>'
+    +'<span style="font-size:11px;color:rgba(255,255,255,.8);display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#2ecc71"></span>2루수</span>'
+    +'<span style="font-size:11px;color:rgba(255,255,255,.8);display:flex;align-items:center;gap:3px"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#16a085"></span>밀어치기</span>'
     +'</div>'
     // 3단 요약
     +(noData?('<div style="padding:0 12px;text-align:center;font-size:11px;color:rgba(255,255,255,.35)">타구 방향 데이터가 없습니다. 타석 입력 시 방향을 선택하면 표시됩니다.</div>'):('<div style="display:flex;gap:6px;margin:0 12px">'+('<div style="flex:1;text-align:center;padding:8px 4px;border-radius:8px;background:rgba(255,255,255,.07)"><div style="font-size:18px;font-weight:800;color:#f87171">'+pp+'%</div><div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px">당겨치기</div></div>')+('<div style="flex:1;text-align:center;padding:8px 4px;border-radius:8px;background:rgba(255,255,255,.07)"><div style="font-size:18px;font-weight:800;color:#fde047">'+cp+'%</div><div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px">중앙</div></div>')+('<div style="flex:1;text-align:center;padding:8px 4px;border-radius:8px;background:rgba(255,255,255,.07)"><div style="font-size:18px;font-weight:800;color:#4ade80">'+op+'%</div><div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px">밀어치기</div></div>')+('<div style="flex:1;text-align:center;padding:8px 4px;border-radius:8px;background:rgba(255,255,255,.07)"><div style="font-size:18px;font-weight:800;color:white">'+total+'</div><div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px">기록타구</div></div>')+'</div>'))
@@ -1154,6 +1154,14 @@ function rSettings(){
   const pc=pendingCount();
   const lastStr=S.lastSync?new Date(S.lastSync).toLocaleString('ko',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'없음';
   return'<div class="cfgwrap">'
+    +'<div class="cfgcard">'
+    +'<div class="cfgtitle">🏫 학교 / 팀 정보</div>'
+    +'<div style="font-size:11px;color:var(--txt2);margin-bottom:8px;line-height:1.7">학교명을 입력하면 앱 상단에 표시됩니다.</div>'
+    +'<div style="display:flex;gap:8px">'
+    +'<input class="cfginput" id="school-input" placeholder="예: 서울초등학교" maxlength="30" value="'+S.schoolName+'" style="flex:1;margin-bottom:0">'
+    +'<button class="cfgbtn pr" onclick="saveSchoolName()" style="white-space:nowrap;flex-shrink:0">✓ 저장</button>'
+    +'</div>'
+    +'</div>'
     +'<div class="cfgcard">'
     +'<div class="cfgtitle">☁ 구글 시트 연동</div>'
     +'<div style="font-size:11px;color:var(--txt2);margin-bottom:8px;line-height:1.7">Apps Script 웹 앱 URL을 입력하세요.</div>'
@@ -1563,6 +1571,7 @@ function confirmGame(){
 }
 
 // ── URL / 동기화 / 불러오기 ───────────────────────────────
+function saveSchoolName(){S.schoolName=document.getElementById('school-input').value.trim();save();toast('학교명 저장 완료','ok');r();}
 function saveUrl(){S.scriptUrl=document.getElementById('url-input').value.trim();save();toast('URL 저장 완료','ok');r();}
 async function testConn(){
   const url=document.getElementById('url-input').value.trim();
