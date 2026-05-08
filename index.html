@@ -660,6 +660,7 @@ function rLog(){
     h+='G'+(selGame.no||'?')+' vs '+selGame.opp;
     h+=' <span style="background:'+(isOffSel?'#EBF0FB':'#dcfce7')+';color:'+(isOffSel?'var(--navy)':'#15803d')+';border-radius:4px;padding:1px 8px;font-size:11px;font-weight:600">'+(isOffSel?'정식':'연습')+'</span>';
     if(isCurSel)h+=' <span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 8px;font-size:11px;font-weight:700">진행중</span>';
+    h+='<button onclick="showEditGameModal(\''+selGid+'\')" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:3px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit;flex-shrink:0">✏ 수정</button>';
     h+='</div>';
 
     // 대표 선수 기록
@@ -687,6 +688,26 @@ function rLog(){
     h+='</div>';
   }
   h+='</div>';
+
+  // 날짜 없거나 빈 경기 복구 섹션
+  const noDateGames=allGames.filter(g=>!g.date||!g.date.match(/^\d{4}-\d{2}-\d{2}$/));
+  if(noDateGames.length){
+    h+='<div style="margin:8px 12px;background:#fffbeb;border:1px solid #fcd34d;border-radius:var(--rl);padding:12px 14px">';
+    h+='<div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:8px">⚠ 달력에 표시되지 않은 경기 ('+noDateGames.length+'개)</div>';
+    h+='<div style="font-size:11px;color:#78350f;margin-bottom:10px;line-height:1.6">날짜 정보가 없어 달력에 표시되지 않습니다. 수정 버튼을 눌러 날짜를 입력해주세요.</div>';
+    noDateGames.forEach(function(g){
+      var bCnt=S.blog.filter(function(e){return e.gid===g.id;}).length;
+      var pCnt=S.pit_bf.filter(function(e){return e.gid===g.id;}).length;
+      h+='<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-top:1px solid #fcd34d">';
+      h+='<div style="flex:1">';
+      h+='<div style="font-size:13px;font-weight:600;color:var(--txt)">G'+(g.no||'?')+' vs '+(g.opp||'?')+'</div>';
+      h+='<div style="font-size:11px;color:var(--txt2)">타석 '+bCnt+' · 투수 '+pCnt+'타자</div>';
+      h+='</div>';
+      h+='<button onclick="showEditGameModal(\''+g.id+'\')" style="background:var(--navy);color:#fff;border:none;border-radius:var(--r);padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">날짜 입력</button>';
+      h+='</div>';
+    });
+    h+='</div>';
+  }
 
   const be=S.blog.filter(e=>e.gid===selGid);
   const pbf=S.pit_bf.filter(e=>e.gid===selGid);
@@ -1323,6 +1344,54 @@ function showStatInfo(key){
       +'<p style="font-size:13px;color:var(--navy);line-height:1.6;margin:0">'+info.tip+'</p>'
       +'</div>':'')
     +'</div></div>';
+}
+function showEditGameModal(gid){
+  // S.games에서 찾고, 없으면 blog/pit_bf에서 샘플로 구성
+  var g=S.games.find(function(x){return x.id===gid;});
+  if(!g){
+    var sample=S.blog.find(function(e){return e.gid===gid;})||S.pit_bf.find(function(e){return e.gid===gid;});
+    g={id:gid,no:'?',date:sample?(sample.date||''):'',opp:sample?(sample.opp||''):'',type:'O'};
+  }
+  const today=new Date();
+  const dd=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+  const curDate=g.date&&g.date.match(/^\d{4}-\d{2}-\d{2}$/)?g.date:dd;
+  const curOpp=g.opp&&g.opp!=='?'?g.opp:'';
+  const curType=g.type||'O';
+  const tbBase='flex:1;padding:9px 0;border-radius:var(--r);border:1px solid var(--bdr);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s,color .15s';
+  const tbOn=tbBase+';background:var(--navy);color:#fff;border-color:var(--navy)';
+  const tbOff=tbBase+';background:var(--card);color:var(--txt2)';
+  document.getElementById('modal-root').innerHTML=
+    '<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">'
+    +'<h3>경기 정보 수정</h3>'
+    +'<div class="mlbl">경기 날짜</div><input type="date" id="m-date" value="'+curDate+'">'
+    +'<div class="mlbl">상대팀</div><input type="text" id="m-opp" placeholder="상대팀 이름" maxlength="20" value="'+curOpp+'">'
+    +'<div class="mlbl">경기 종류</div>'
+    +'<div style="display:flex;gap:8px;margin-bottom:4px">'
+    +'<button id="m-type-O" onclick="setGameType(\'O\')" style="'+(curType==='O'?tbOn:tbOff)+'">정식경기</button>'
+    +'<button id="m-type-P" onclick="setGameType(\'P\')" style="'+(curType==='P'?tbOn:tbOff)+'">연습경기</button>'
+    +'</div>'
+    +'<input type="hidden" id="m-gtype" value="'+curType+'">'
+    +'<div class="mbtns"><button class="mcancel" onclick="closeModal()">취소</button>'
+    +'<button class="mok" onclick="confirmEditGame(\''+gid+'\')">수정 완료</button></div></div></div>';
+  setTimeout(function(){var el=document.getElementById('m-opp');if(el)el.focus();},100);
+}
+function confirmEditGame(gid){
+  const d=document.getElementById('m-date').value.trim();
+  const o=document.getElementById('m-opp').value.trim();
+  const t=document.getElementById('m-gtype').value||'O';
+  if(!d||!o){toast('날짜와 상대팀을 입력해주세요','err');return;}
+  // S.games 업데이트 (없으면 추가)
+  var g=S.games.find(function(x){return x.id===gid;});
+  if(g){g.date=d;g.opp=o;g.type=t;}
+  else{S.games.push({id:gid,no:S.gcnt++,date:d,opp:o,type:t});}
+  // blog/pit_bf/pit_runs의 date·opp도 동기화
+  [S.blog,S.pit_bf,S.pit_runs].forEach(function(arr){
+    arr.filter(function(e){return e.gid===gid;}).forEach(function(e){e.date=d;e.opp=o;});
+  });
+  // 이 경기를 선택 상태로 + 해당 월로 이동
+  S.logGameId=gid;
+  S.calMonth=d.slice(0,7);
+  save();closeModal();renderCt();toast('경기 정보가 수정됐습니다','ok');
 }
 function showGameModal(){
   const today=new Date();
