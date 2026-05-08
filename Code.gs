@@ -22,12 +22,21 @@ function readAll(sheetName) {
   const vals = sh.getDataRange().getValues();
   if (vals.length < 2 || !vals[0][0]) return [];
   const hdrs = vals[0].map(String);
+  const tz = Session.getScriptTimeZone();
   return vals.slice(1)
     .filter(r => r[0] !== '' && r[0] !== null && r[0] !== undefined)
     .map(r => {
       const obj = {};
       hdrs.forEach((h, i) => {
-        if (h) obj[h] = (r[i] === '' || r[i] === null) ? null : r[i];
+        if (!h) return;
+        let v = r[i];
+        // 구글 시트가 날짜 문자열을 Date 객체로 자동 변환하는 경우 YYYY-MM-DD로 복원
+        if (v instanceof Date) {
+          v = Utilities.formatDate(v, tz, 'yyyy-MM-dd');
+        } else if (v === '' || v === null) {
+          v = null;
+        }
+        obj[h] = v;
       });
       return obj;
     });
@@ -68,6 +77,15 @@ function upsertRows(sheetName, items) {
       }
     });
   }
+
+  // 날짜처럼 생긴 컬럼을 텍스트 형식으로 고정 (시트 자동 변환 방지)
+  const dateLikeCols = hdrs.reduce((acc, h, i) => {
+    if (h === 'date' || h === 'lastSync') acc.push(i + 1);
+    return acc;
+  }, []);
+  dateLikeCols.forEach(colNum => {
+    sh.getRange(1, colNum, sh.getMaxRows(), 1).setNumberFormat('@STRING@');
+  });
 
   // upsert 처리
   items.forEach(item => {
