@@ -1037,15 +1037,7 @@ function rLog(){
     h+='<div class="cal-cell'+(g?' has-game':'')+(isSel?' selected':'')+'"'
       +(g?' onclick="var _gid=\''+g.id+'\';S.logGameId=(_gid===S.logGameId?null:_gid);S.calMonth=\''+calMon+'\';renderCt()"':'')+' >';
     h+='<span class="cal-day" style="color:'+dc+'">'+(isCurG?'<strong>'+day+'</strong>':day)+'</span>';
-    if(g){
-      var csc=gameScore(g.id);
-      if(csc.has){
-        var cwin=csc.our>csc.opp,close=csc.our<csc.opp;
-        h+='<span style="font-size:9px;font-weight:700;color:'+(cwin?'#16a34a':close?'#dc2626':'var(--txt2)')+'">'+csc.our+'-'+csc.opp+'</span>';
-      } else {
-        h+='<span class="cal-dot" style="background:'+(isOff?'var(--navy)':'#16a34a')+'"></span>';
-      }
-    }
+    if(g)h+='<span class="cal-dot" style="background:'+(isOff?'var(--navy)':'#16a34a')+'"></span>';
     h+='</div>';
   }
   h+='</div>';
