@@ -458,7 +458,7 @@ function renderLogin(){
   ol.style.display='flex';
   ol.innerHTML='<div class="pin-wrap">'
     +'<div class="pin-logo">⚾</div>'
-    +'<div class="pin-title">'+(S.schoolName?esc(S.schoolName)+' 야구':'우리아이 야구 기록')+'</div>'
+    +'<div class="pin-title">우리아이 야구 기록</div>'
     +'<div class="pin-sub">코치/감독 또는 학부모 PIN을 입력하세요</div>'
     +'<input class="pin-input" id="pin-input" type="password" inputmode="numeric" maxlength="8" placeholder="PIN 입력" autocomplete="off" onkeydown="if(event.key===&apos;Enter&apos;)doLogin()">'
     +'<div class="pin-err" id="pin-err"></div>'
@@ -735,7 +735,7 @@ function renderGHdr(){
       +'<button class="gh-btn" onclick="endGame()" style="background:#c0392b;font-weight:700">■ 종료</button>'
       +'</div></div>')
     :('<div class="ghdr"><div>'
-      +'<div class="gh-title">⚾ '+(S.schoolName?esc(S.schoolName)+' 야구':'우리아이 야구 기록')+'</div>'
+      +'<div class="gh-title">⚾ 우리아이 야구 기록</div>'
       +'<div class="gh-sub">'+(isFirstVisit?'👇 설정 탭에서 초기 설정을 시작하세요':'경기를 시작하세요')+'</div>'
       +'</div>'
       +'<div class="gh-right">'
