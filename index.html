@@ -1340,7 +1340,8 @@ function rStats(){
   const praG=S.games.filter(g=>g.type==='P').length;
   const myNo=activeNo()!=null?Number(activeNo()):null;
   const isAdmin=S.role==='admin'||!S.role;
-  const showAll=isAdmin?(S.statsShowAll||!myNo):false;
+  const saberFocusNo=isAdmin?(S.sprayPlayer!==null?S.sprayPlayer:myNo):myNo;
+  const showAll=isAdmin?(S.statsShowAll||saberFocusNo===null):false;
   const myBatSt=myNo?bs.find(s=>Number(s.no)===myNo):null;
   const myPitSt=myNo?ps.find(s=>Number(s.no)===myNo):null;
   const myName=myNo?(ROSTER.find(x=>x.no===myNo)||{name:'대표선수'}).name:null;
@@ -1348,7 +1349,7 @@ function rStats(){
   const fbBase='padding:6px 14px;border-radius:20px;border:1px solid var(--bdr);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;';
   const fbOn=fbBase+'background:var(--navy);color:#fff;border-color:var(--navy)';
   const fbOff=fbBase+'background:var(--card);color:var(--txt2)';
-  const tbtn=(myNo&&isAdmin)?'<button onclick="S.statsShowAll='+(!showAll)+';renderCt()" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:12px;padding:2px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit">'+(showAll?'대표만 ▲':'전체 선수 ▼')+'</button>':'';
+  const tbtn=(isAdmin&&saberFocusNo!==null)?'<button onclick="S.statsShowAll='+(!showAll)+';renderCt()" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:12px;padding:2px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit">'+(showAll?'선택만 ▲':'전체 선수 ▼')+'</button>':'';
 
   let h='<div style="display:flex;gap:8px;padding:10px 12px;border-bottom:1px solid var(--bdr);background:var(--card)">'
     +'<button onclick="S.statsFilter=\'all\';renderCt()" style="'+(sf==='all'?fbOn:fbOff)+'">전체 '+totalG+'</button>'
@@ -1370,7 +1371,7 @@ function rStats(){
   // ── 타자 ──────────────────────────────────────────────────
   if(bs.length&&batRows.length){
     const activeSprayNo=S.sprayPlayer!==null?S.sprayPlayer:(myBatSt?Number(myBatSt.no):null);
-    h+='<div class="seclbl">🏏 타자 기본 기록 <span style="font-size:10px;font-weight:400;color:var(--txt2)">— 이름 탭 → 스프레이 차트'+(myBatSt?' · 대표 자동':'')+'</span></div>'
+    h+='<div class="seclbl">🏏 타자 기본 기록 <span style="font-size:10px;font-weight:400;color:var(--txt2)">— 이름 탭 → '+(isAdmin?'스프레이+세이버 연동':'스프레이 차트'+(myBatSt?' · 대표 자동':''))+'</span></div>'
       +'<div class="statwrap"><table><thead><tr>'
       +'<th style="text-align:left;min-width:62px">선수</th>'
       +'<th class="sth" onclick="showStatInfo(\'PA\')">PA</th><th class="sth" onclick="showStatInfo(\'AB\')">AB</th>'
@@ -1392,12 +1393,12 @@ function rStats(){
     if(activeSprayNo!==null)h+=rSprayChart(activeSprayNo);
 
     h+='<div class="seclbl" style="display:flex;align-items:center">📊 타자 세이버매트릭스 <span style="font-size:10px;font-weight:400;color:var(--txt2);margin-left:4px">— MLB 기준 색상</span>'+tbtn+'</div>';
-    const sortedBs=myNo?[...bs].sort((a,b)=>(Number(b.no)===myNo?1:0)-(Number(a.no)===myNo?1:0)):bs;
-    if(myNo&&!myBatSt){
+    const sortedBs=saberFocusNo?[...bs].sort((a,b)=>(Number(b.no)===saberFocusNo?1:0)-(Number(a.no)===saberFocusNo?1:0)):bs;
+    if(myNo&&!myBatSt&&!isAdmin){
       h+=rNoRecMsg(myName,'타자');
-      if(showAll)sortedBs.forEach(function(s){h+=rBatTile(s,myNo);});
+      if(showAll)sortedBs.forEach(function(s){h+=rBatTile(s,saberFocusNo);});
     } else {
-      (showAll?sortedBs:sortedBs.filter(s=>Number(s.no)===myNo)).forEach(function(s){h+=rBatTile(s,myNo);});
+      (showAll?sortedBs:sortedBs.filter(s=>Number(s.no)===saberFocusNo)).forEach(function(s){h+=rBatTile(s,saberFocusNo);});
     }
   } else if(!isAdmin&&myNo&&!myBatSt){
     h+=rNoRecMsg(myName,'타자');
@@ -1422,11 +1423,11 @@ function rStats(){
     h+='</tbody></table></div>';
 
     h+='<div class="seclbl" style="display:flex;align-items:center">📈 투수 세이버매트릭스 <span style="font-size:10px;font-weight:400;color:var(--txt2);margin-left:4px">— MLB 기준 색상</span>'+tbtn+'</div>';
-    if(myNo&&!myPitSt){
+    if(myNo&&!myPitSt&&!isAdmin){
       h+=rNoRecMsg(myName,'투수');
-      if(showAll)ps.forEach(function(s){h+=rPitTile(s,myNo);});
+      if(showAll)ps.forEach(function(s){h+=rPitTile(s,saberFocusNo);});
     } else {
-      (showAll?ps:ps.filter(s=>Number(s.no)===myNo)).forEach(function(s){h+=rPitTile(s,myNo);});
+      (showAll?ps:ps.filter(s=>Number(s.no)===saberFocusNo)).forEach(function(s){h+=rPitTile(s,saberFocusNo);});
     }
   } else if(!isAdmin&&myNo&&!myPitSt&&ps.length){
     h+=rNoRecMsg(myName,'투수');
@@ -1559,6 +1560,7 @@ function rSprayChart(pno){
 function setSprayPlayer(pno){
   var key=Number(pno);
   S.sprayPlayer=(S.sprayPlayer===key)?null:key;
+  S.statsShowAll=false;
   renderCt();
   if(S.sprayPlayer!==null){setTimeout(function(){var el=document.getElementById('spray-section');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},100);}
 }
