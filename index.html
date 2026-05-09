@@ -775,7 +775,7 @@ function renderGHdr(){
       +'</div></div>');
 }
 function renderTabs(){
-  const ts=[{e:'⚾',l:'타자입력'},{e:'🎯',l:'투수입력'},{e:'📋',l:'기록'},{e:'📊',l:'통계'},{e:'⚙',l:'설정'}];
+  const ts=[{e:'🏏',l:'타자입력'},{e:'⚾',l:'투수입력'},{e:'📋',l:'기록'},{e:'📊',l:'통계'},{e:'⚙',l:'설정'}];
   const isRecorder=S.role==='recorder';
   document.getElementById('tbr').innerHTML=ts.map((t,i)=>{
     if(isRecorder&&i===3)return'';
