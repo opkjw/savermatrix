@@ -271,7 +271,7 @@ let S={
   // 기록
   logGameId:null,calMonth:null,myPlayer:null,
   // 설정
-  rosterSub:0,schoolName:"",role:null,setupStep:0,setupDone:false,showPlayerSel:false,activeChild:null,
+  rosterSub:0,schoolName:"",role:null,setupStep:0,setupDone:false,showPlayerSel:false,activeChild:null,bases:{b1:null,b2:null,b3:null},outs:0,
   // 데이터
   game:null,gcnt:1,games:[],
   blog:[],pit_bf:[],pit_runs:[],
@@ -285,7 +285,7 @@ function load(){
     const raw=localStorage.getItem('bb_final');
     if(raw){
       const d=JSON.parse(raw);
-      ['blog','pit_bf','pit_runs','games','game','gcnt','scriptUrl','scriptToken','lastSync','rosterDirty','deletedGids','schoolName'].forEach(k=>{if(d[k]!==undefined)S[k]=d[k];});
+      ['blog','pit_bf','pit_runs','games','game','gcnt','scriptUrl','scriptToken','lastSync','rosterDirty','deletedGids','schoolName','bases','outs'].forEach(k=>{if(d[k]!==undefined)S[k]=d[k];});
       if(d.myPlayer!=null)S.myPlayer=parseInt(d.myPlayer)||null;
       S.syncedIds=new Set(d.syncedIds||[]);
       if(d.setupDone!==undefined)S.setupDone=d.setupDone;
@@ -303,7 +303,7 @@ function save(){
       blog:S.blog,pit_bf:S.pit_bf,pit_runs:S.pit_runs,games:S.games,
       game:S.game,gcnt:S.gcnt,scriptUrl:S.scriptUrl,lastSync:S.lastSync,
       syncedIds:[...S.syncedIds],roster:ROSTER,rosterDirty:S.rosterDirty,myPlayer:S.myPlayer,
-      deletedGids:S.deletedGids,schoolName:S.schoolName,scriptToken:S.scriptToken,setupDone:S.setupDone,setupStep:S.setupStep,
+      deletedGids:S.deletedGids,schoolName:S.schoolName,scriptToken:S.scriptToken,setupDone:S.setupDone,setupStep:S.setupStep,bases:S.bases,outs:S.outs,
     }));
   }catch(e){console.error(e);}
 }
@@ -843,7 +843,8 @@ function getAllowedNos(){
   return nos;
 }
 function rBatPSel(){
-  let h='<div class="seclbl">선수 선택</div><div class="pgrid">';
+  let h=rBaseDiagram();
+  h+='<div class="seclbl">선수 선택</div><div class="pgrid">';
   const allowedNos=getAllowedNos();
   ROSTER.filter(p=>p.r==='b'&&(!allowedNos||allowedNos.indexOf(p.no)>=0)).forEach(p=>{
     h+='<button class="pbtn'+(S.bp===p.no?' sel-b':'')+'" onclick="selBat('+p.no+')">'
@@ -869,6 +870,7 @@ function rOCSel(mode){
     h+='<button class="ocbtn" style="background:'+o.bg+';color:'+o.fg+'" onclick="'+(isP?'pitOC':'selOC')+'(\''+o.id+'\')">'+o.l+'</button>';
   });
   h+='</div></div>';
+  if(!isP)h+=rBaseDiagram();
   return h;
 }
 function rExtras(){
@@ -1724,7 +1726,7 @@ function endGame(){
   save();r();toast('경기 종료');
 }
 function selBat(no){S.bp=no;S.bs=1;r();}
-function selOC(id){S.bo=id;S.brbi=S.bsb=S.bcs=0;S.bzone=null;S.bs=2;r();}
+function selOC(id){S.bo=id;S.brbi=calcAutoRBI(id);S.bsb=0;S.bcs=0;S.bzone=null;S.bs=2;r();}
 function selPit(no){S.curPit=(no!==null&&no!==undefined)?Number(no):no;S.pitSub=0;r();}
 function adj(key,d){
   S[key]=Math.max(0,(S[key]||0)+d);
@@ -1735,6 +1737,7 @@ function saveBat(){
   const p=ROSTER.find(x=>x.no===S.bp);
   S.blog.push({id:UID(),gid:S.game.id,date:S.game.date,opp:S.game.opp,
     pno:p.no,pn:p.name,oc:S.bo,rbi:S.brbi,run:0,sb:S.bsb,cs:S.bcs,zone:S.bzone});
+  applyBaseAdvancement(S.bo,p.no);
   save();toast(p.name+' '+ocInfo(S.bo).l+' 저장!','ok');S.bs=0;S.bzone=null;r();
 }
 function pitOC(id){
@@ -1761,6 +1764,116 @@ function addPitRun(earned){
   save();toast(p.name+' '+(earned?'자책점':'비자책점'),'ok');renderCt();
 }
 function delPitRun(id){S.pit_runs=S.pit_runs.filter(e=>e.id!==id);save();renderCt();}
+function rBaseDiagram(){
+  if(!S.game)return'';
+  function baseSlot(key,label){
+    var pno=S.bases[key];
+    var p=pno!=null?ROSTER.find(function(x){return Number(x.no)===Number(pno);}):null;
+    var h='<div style="text-align:center;min-width:90px">';
+    h+='<div style="font-size:9px;color:var(--txt2);margin-bottom:3px;font-weight:700;letter-spacing:.5px">'+label+'</div>';
+    if(p){
+      h+='<div style="background:var(--navy);color:#fff;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:700">#'+p.no+' '+esc(p.name.length>4?p.name.slice(0,4)+'…':p.name)+'</div>';
+      h+='<div style="display:flex;gap:3px;margin-top:4px;justify-content:center">';
+      h+='<button onclick="stealBase(\''+key+'\')" style="background:#16a34a;color:#fff;border:none;border-radius:4px;padding:4px 6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit">도루✓</button>';
+      h+='<button onclick="caughtBase(\''+key+'\')" style="background:#dc2626;color:#fff;border:none;border-radius:4px;padding:4px 6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit">도루✗</button>';
+      h+='<button onclick="removeFromBase(\''+key+'\')" style="background:#6b7280;color:#fff;border:none;border-radius:4px;padding:4px 6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit">아웃</button>';
+      h+='</div>';
+    }else{
+      h+='<div style="border:2px dashed var(--bdr);border-radius:6px;height:34px;display:flex;align-items:center;justify-content:center"><span style="font-size:10px;color:var(--bdr)">—</span></div>';
+    }
+    return h+'</div>';
+  }
+  var outs=S.outs||0;
+  var dots='';
+  for(var i=0;i<3;i++)dots+='<span style="width:11px;height:11px;border-radius:50%;background:'+(i<outs?'#dc2626':'var(--bdr)')+';display:inline-block;margin:0 2px"></span>';
+  var h='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:var(--rl);margin:8px 12px;padding:12px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
+  h+='<span style="font-size:11px;font-weight:700;color:var(--txt)">⚾ 베이스 현황</span>';
+  h+='<div style="display:flex;align-items:center;gap:4px"><span style="font-size:10px;color:var(--txt2)">아웃</span>'+dots+'</div>';
+  h+='</div>';
+  h+='<div style="display:flex;flex-direction:column;align-items:center;gap:10px">';
+  h+='<div>'+baseSlot('b2','2루')+'</div>';
+  h+='<div style="display:flex;gap:16px;width:100%;justify-content:space-between">'+baseSlot('b3','3루')+baseSlot('b1','1루')+'</div>';
+  h+='</div>';
+  h+='<button onclick="endInning()" style="width:100%;margin-top:10px;background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:var(--r);padding:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">이닝 종료 (베이스 초기화)</button>';
+  return h+'</div>';
+}
+function scoreRunnerBase(pno){
+  if(!S.game||pno==null)return;
+  var ents=S.blog.filter(function(e){return e.gid===S.game.id&&Number(e.pno)===Number(pno);});
+  if(ents.length){var last=ents[ents.length-1];last.run=(last.run||0)+1;}
+}
+function calcAutoRBI(oc){
+  var b=S.bases;
+  if(oc==='HR')return (b.b1!=null?1:0)+(b.b2!=null?1:0)+(b.b3!=null?1:0)+1;
+  if(oc==='3B')return (b.b1!=null?1:0)+(b.b2!=null?1:0)+(b.b3!=null?1:0);
+  if(oc==='2B')return (b.b2!=null?1:0)+(b.b3!=null?1:0);
+  if(oc==='1B')return (b.b3!=null?1:0);
+  if(oc==='SF')return (b.b3!=null?1:0);
+  if(oc==='BB'||oc==='IBB'||oc==='HBP'||oc==='KWP')return (b.b1!=null&&b.b2!=null&&b.b3!=null)?1:0;
+  return 0;
+}
+function applyBaseAdvancement(oc,pno){
+  if(!S.game)return;
+  var b={b1:S.bases.b1,b2:S.bases.b2,b3:S.bases.b3};
+  if(oc==='HR'){
+    if(b.b1!=null)scoreRunnerBase(b.b1);if(b.b2!=null)scoreRunnerBase(b.b2);if(b.b3!=null)scoreRunnerBase(b.b3);
+    scoreRunnerBase(pno);S.bases={b1:null,b2:null,b3:null};
+  }else if(oc==='3B'){
+    if(b.b1!=null)scoreRunnerBase(b.b1);if(b.b2!=null)scoreRunnerBase(b.b2);if(b.b3!=null)scoreRunnerBase(b.b3);
+    S.bases={b1:null,b2:null,b3:pno};
+  }else if(oc==='2B'){
+    if(b.b2!=null)scoreRunnerBase(b.b2);if(b.b3!=null)scoreRunnerBase(b.b3);
+    S.bases={b1:null,b2:pno,b3:b.b1!=null?b.b1:null};
+  }else if(oc==='1B'){
+    if(b.b3!=null)scoreRunnerBase(b.b3);
+    S.bases={b1:pno,b2:b.b1!=null?b.b1:null,b3:b.b2!=null?b.b2:null};
+  }else if(oc==='BB'||oc==='IBB'||oc==='HBP'||oc==='KWP'){
+    if(b.b1!=null&&b.b2!=null&&b.b3!=null){scoreRunnerBase(b.b3);S.bases={b1:pno,b2:b.b1,b3:b.b2};}
+    else if(b.b1!=null&&b.b2!=null){S.bases={b1:pno,b2:b.b1,b3:b.b2};}
+    else if(b.b1!=null){S.bases={b1:pno,b2:b.b1,b3:b.b3};}
+    else{S.bases={b1:pno,b2:b.b2,b3:b.b3};}
+  }else if(oc==='E'){
+    S.bases={b1:pno,b2:b.b2,b3:b.b3};
+    if(b.b1!=null)toast('1루 주자 이동을 확인하세요','');
+  }else if(oc==='FC'){
+    S.outs=(S.outs||0)+1;S.bases={b1:pno,b2:b.b2,b3:b.b3};
+    if(b.b1!=null)toast('야수선택: 아웃된 주자를 제거해주세요','');
+  }else if(oc==='K'||oc==='GO'||oc==='FO'){
+    S.outs=(S.outs||0)+1;
+  }else if(oc==='DP'){
+    S.outs=(S.outs||0)+2;S.bases={b1:null,b2:b.b2,b3:b.b3};
+  }else if(oc==='SF'){
+    S.outs=(S.outs||0)+1;if(b.b3!=null)scoreRunnerBase(b.b3);S.bases={b1:b.b1,b2:b.b2,b3:null};
+  }else if(oc==='SH'){
+    S.outs=(S.outs||0)+1;if(b.b3!=null)scoreRunnerBase(b.b3);
+    S.bases={b1:null,b2:b.b1!=null?b.b1:null,b3:b.b2!=null?b.b2:null};
+  }
+}
+function stealBase(base){
+  var pno=S.bases[base];if(pno==null)return;
+  if(base==='b1'){S.bases.b2=pno;S.bases.b1=null;}
+  else if(base==='b2'){S.bases.b3=pno;S.bases.b2=null;}
+  else if(base==='b3'){scoreRunnerBase(pno);S.bases.b3=null;}
+  if(S.game){var ents=S.blog.filter(function(e){return e.gid===S.game.id&&Number(e.pno)===Number(pno);});if(ents.length)ents[ents.length-1].sb=(ents[ents.length-1].sb||0)+1;}
+  save();renderCt();
+  var p=ROSTER.find(function(x){return Number(x.no)===Number(pno);});
+  toast((p?p.name:'선수')+' 도루 성공!','ok');
+}
+function caughtBase(base){
+  var pno=S.bases[base];if(pno==null)return;
+  S.bases[base]=null;S.outs=(S.outs||0)+1;
+  if(S.game){var ents=S.blog.filter(function(e){return e.gid===S.game.id&&Number(e.pno)===Number(pno);});if(ents.length)ents[ents.length-1].cs=(ents[ents.length-1].cs||0)+1;}
+  save();renderCt();
+  var p=ROSTER.find(function(x){return Number(x.no)===Number(pno);});
+  toast((p?p.name:'선수')+' 도루 실패','');
+}
+function removeFromBase(base){
+  if(S.bases[base]==null)return;S.bases[base]=null;S.outs=(S.outs||0)+1;save();renderCt();
+}
+function endInning(){
+  S.bases={b1:null,b2:null,b3:null};S.outs=0;save();renderCt();toast('이닝 종료','ok');
+}
 function startAddToGame(gid,type){
   var g=S.games.find(function(x){return x.id===gid;});
   if(!g){
@@ -2201,7 +2314,7 @@ function confirmGame(){
 function doCreateGame(d,o,t){
   S.game={id:UID(),no:S.gcnt++,date:d,opp:o,type:t,recordedBy:S.role||'admin'};
   S.games.push({...S.game});
-  S.curPit=null;save();closeModal();r();toast('vs '+o+' '+(t==='P'?'연습':'정식')+'경기 시작!');
+  S.curPit=null;S.bases={b1:null,b2:null,b3:null};S.outs=0;save();closeModal();r();toast('vs '+o+' '+(t==='P'?'연습':'정식')+'경기 시작!');
 }
 function resumeExistingGame(gid){
   const g=S.games.find(function(x){return x.id===gid;});
