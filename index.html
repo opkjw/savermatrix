@@ -1549,11 +1549,12 @@ function rStats(){
         +'</tr></thead><tbody>';
       batRows.forEach(s=>{
         const sel=Number(s.no)===activeSprayNo;
-        h+='<tr style="cursor:pointer;background:'+(sel?'rgba(27,58,107,.07)':'none')+'" onclick="setSprayPlayer('+Number(s.no)+')">'
-          +'<td style="text-align:left;font-weight:700;color:'+(sel?'var(--navy)':'var(--txt)')+';text-decoration:'+(sel?'underline':'none')+'">'+esc(s.name)+(sel?' 📍':'')+'</td>'
-          +'<td>'+s.pa+'</td><td>'+s.ab+'</td><td>'+s.h+'</td><td>'+s.d2+'</td><td>'+s.d3+'</td>'
-          +'<td style="color:var(--red);font-weight:600">'+s.hr+'</td>'
-          +'<td>'+s.rbi+'</td><td>'+s.run+'</td><td>'+s.bb+'</td><td>'+s.so+'</td><td>'+s.sb+'</td></tr>';
+        const bg=sel?'background:rgba(27,58,107,.13);':'';
+        h+='<tr style="cursor:pointer" onclick="setSprayPlayer('+Number(s.no)+')">'
+          +'<td style="text-align:left;font-weight:700;'+bg+'color:'+(sel?'var(--navy)':'var(--txt)')+';text-decoration:'+(sel?'underline':'none')+'">'+esc(s.name)+(sel?' 📍':'')+'</td>'
+          +'<td style="'+bg+'">'+s.pa+'</td><td style="'+bg+'">'+s.ab+'</td><td style="'+bg+'">'+s.h+'</td><td style="'+bg+'">'+s.d2+'</td><td style="'+bg+'">'+s.d3+'</td>'
+          +'<td style="'+bg+'color:var(--red);font-weight:600">'+s.hr+'</td>'
+          +'<td style="'+bg+'">'+s.rbi+'</td><td style="'+bg+'">'+s.run+'</td><td style="'+bg+'">'+s.bb+'</td><td style="'+bg+'">'+s.so+'</td><td style="'+bg+'">'+s.sb+'</td></tr>';
       });
       h+='</tbody></table></div>';
       if(activeSprayNo!==null)h+=rSprayChart(activeSprayNo);
@@ -1581,13 +1582,14 @@ function rStats(){
         +'</tr></thead><tbody>';
       pitRows.forEach(s=>{
         const sel=Number(s.no)===pitSaberFocusNo;
-        h+='<tr style="cursor:pointer;background:'+(sel?'rgba(146,43,33,.07)':'none')+'" onclick="setPitFocus('+Number(s.no)+')">'
-          +'<td style="text-align:left;font-weight:700;color:'+(sel?'var(--red)':'var(--txt)')+';text-decoration:'+(sel?'underline':'none')+'">'+esc(s.name)+(sel?' 📍':'')+'</td>'
-          +'<td>'+s.g+'</td><td>'+s.ipd+'</td><td>'+s.h+'</td><td>'+s.bb+'</td>'
-          +'<td style="color:#1d4ed8;font-weight:600">'+s.k+'</td>'
-          +'<td style="color:var(--red)">'+s.hr+'</td>'
-          +'<td style="color:var(--red);font-weight:600">'+s.er+'</td>'
-          +'<td>'+s.r+'</td></tr>';
+        const bg=sel?'background:rgba(146,43,33,.13);':'';
+        h+='<tr style="cursor:pointer" onclick="setPitFocus('+Number(s.no)+')">'
+          +'<td style="text-align:left;font-weight:700;'+bg+'color:'+(sel?'var(--red)':'var(--txt)')+';text-decoration:'+(sel?'underline':'none')+'">'+esc(s.name)+(sel?' 📍':'')+'</td>'
+          +'<td style="'+bg+'">'+s.g+'</td><td style="'+bg+'">'+s.ipd+'</td><td style="'+bg+'">'+s.h+'</td><td style="'+bg+'">'+s.bb+'</td>'
+          +'<td style="'+bg+'color:#1d4ed8;font-weight:600">'+s.k+'</td>'
+          +'<td style="'+bg+'color:var(--red)">'+s.hr+'</td>'
+          +'<td style="'+bg+'color:var(--red);font-weight:600">'+s.er+'</td>'
+          +'<td style="'+bg+'">'+s.r+'</td></tr>';
       });
       h+='</tbody></table></div>';
 
