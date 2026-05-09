@@ -528,13 +528,17 @@ function renderSetup(){
       +'<div class="su-connst" id="su-connst"></div>';
     actions='<button class="su-next" id="su-fetch-btn" onclick="saveSetupUrl()">연결 및 불러오기</button>';
   } else if(step===2){
-    // 학교/팀명 입력
+    // 학교/팀명 입력 (목록 찾기 또는 직접 입력)
     body='<div class="su-icon">🏫</div>'
       +'<div class="su-title">우리 팀 이름을<br>알려주세요</div>'
-      +'<div class="su-desc">학교 또는 팀 이름을 입력해주세요</div>'
+      +'<div class="su-desc">목록에서 선택하거나<br>직접 입력해주세요</div>'
       +'<div class="su-field">'
       +'<div class="su-lbl">학교 / 팀명</div>'
-      +'<input class="su-input" id="su-school" type="text" placeholder="예: 한국초등학교 야구단" value="'+esc(S.schoolName)+'" maxlength="20" autocomplete="off">'
+      +'<div style="display:flex;gap:8px;align-items:stretch">'
+      +'<input class="su-input" id="su-school" type="text" placeholder="직접 입력 또는 아래 찾기" value="'+esc(S.schoolName)+'" maxlength="30" autocomplete="off" style="flex:1;margin-bottom:0">'
+      +'<button onclick="searchTeams()" style="flex-shrink:0;padding:0 16px;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);border-radius:var(--r);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">🔍 찾기</button>'
+      +'</div>'
+      +'<div id="su-team-list" style="margin-top:6px"></div>'
       +'</div>'
       +'<div class="su-connst" id="su-school-st"></div>';
     actions='<button class="su-next" onclick="saveSetupSchool()">다음</button>';
@@ -572,6 +576,53 @@ function renderSetup(){
   ol.innerHTML=dots+'<div class="su-body">'+body+'</div>'+'<div class="su-actions">'+actions+'</div>';
   if(step===1)setTimeout(function(){var el=document.getElementById('su-url');if(el)el.focus();},100);
   if(step===2)setTimeout(function(){var el=document.getElementById('su-school');if(el)el.focus();},100);
+}
+var _teamSearchList=[];
+var _teamFiltered=[];
+async function searchTeams(){
+  var listEl=document.getElementById('su-team-list');
+  if(!listEl)return;
+  if(!S.scriptUrl){
+    listEl.innerHTML='<div style="color:#fca5a5;font-size:12px;padding:8px 0;text-align:center">클라우드 연동 후 사용 가능합니다.</div>';
+    return;
+  }
+  listEl.innerHTML='<div style="color:rgba(255,255,255,.6);font-size:13px;padding:10px 0;text-align:center">⏳ 팀 목록 불러오는 중...</div>';
+  try{
+    var res=await fetch(S.scriptUrl+'?action=getTeams');
+    var data=await res.json();
+    if(data.status!=='ok')throw new Error('');
+    _teamSearchList=data.teams||[];
+    renderTeamList('');
+  }catch(e){
+    listEl.innerHTML='<div style="color:#fca5a5;font-size:12px;padding:8px 0;text-align:center">불러오기 실패 — 다시 시도해주세요</div>';
+  }
+}
+function renderTeamList(q){
+  var listEl=document.getElementById('su-team-list');
+  if(!listEl)return;
+  _teamFiltered=q?_teamSearchList.filter(function(t){return t.toLowerCase().indexOf(q.toLowerCase())>=0;}):_teamSearchList.slice();
+  if(!_teamSearchList.length){
+    listEl.innerHTML='<div style="color:rgba(255,255,255,.5);font-size:12px;padding:8px 0;text-align:center">등록된 팀이 없습니다.</div>';
+    return;
+  }
+  var html='<input type="text" value="'+esc(q)+'" placeholder="팀명 검색..." oninput="renderTeamList(this.value)" style="width:100%;box-sizing:border-box;margin-top:2px;padding:10px 12px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:var(--r);color:#fff;font-size:13px;font-family:inherit;outline:none">'
+    +'<div style="max-height:160px;overflow-y:auto;margin-top:6px;border-radius:var(--r)">';
+  if(!_teamFiltered.length){
+    html+='<div style="color:rgba(255,255,255,.5);font-size:12px;padding:10px;text-align:center">검색 결과가 없습니다.</div>';
+  }else{
+    _teamFiltered.forEach(function(t,i){
+      html+='<button onclick="selectTeam('+i+')" style="display:block;width:100%;text-align:left;padding:11px 13px;background:rgba(255,255,255,.07);border:none;border-bottom:1px solid rgba(255,255,255,.07);color:#fff;font-size:14px;cursor:pointer;font-family:inherit">'+esc(t)+'</button>';
+    });
+  }
+  html+='</div>';
+  listEl.innerHTML=html;
+}
+function selectTeam(i){
+  var t=_teamFiltered[i];
+  if(!t)return;
+  var el=document.getElementById('su-school');
+  if(el)el.value=t;
+  document.getElementById('su-team-list').innerHTML='';
 }
 function saveSetupSchool(){
   var el=document.getElementById('su-school');
