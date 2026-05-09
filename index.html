@@ -609,8 +609,10 @@ async function saveSetupUrl(){
     (data.bat_log||[]).forEach(function(e){S.syncedIds.add(e.id);});
     (data.pit_bf||[]).forEach(function(e){S.syncedIds.add(e.id);});
     (data.pit_runs||[]).forEach(function(e){S.syncedIds.add(e.id);});
+    if(data.teamName)S.schoolName=data.teamName;
     S.lastSync=Date.now();save();
-    S.setupStep=2;renderSetup();
+    // 클라우드에서 팀명이 왔으면 step 2(팀명 입력) 건너뜀
+    S.setupStep=S.schoolName?3:2;renderSetup();
   }catch(err){
     if(st){st.textContent='✗ 연결 실패 — URL을 확인해주세요';st.style.color='#fca5a5';}
     if(btn){btn.disabled=false;btn.textContent='연결 및 불러오기';}
