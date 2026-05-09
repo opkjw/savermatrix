@@ -1427,9 +1427,7 @@ function rSettings(){
     +setupGuide
     +'<div class="cfgcard">'
     +'<div class="cfgtitle">🏫 학교 / 팀 정보</div>'
-    +(isAdmin
-      ?'<div style="display:flex;gap:8px"><input class="cfginput" id="school-input" placeholder="예: 서울초등학교" maxlength="30" value="'+esc(S.schoolName)+'" style="flex:1;margin-bottom:0"><button class="cfgbtn pr" onclick="saveSchoolName()" style="white-space:nowrap;flex-shrink:0">✓ 저장</button></div>'
-      :'<div style="font-size:14px;font-weight:600;color:var(--txt)">'+(S.schoolName||'(미설정)')+'</div>')
+    +'<div style="display:flex;gap:8px"><input class="cfginput" id="school-input" placeholder="예: 서울초등학교" maxlength="30" value="'+esc(S.schoolName)+'" style="flex:1;margin-bottom:0"><button class="cfgbtn pr" onclick="saveSchoolName()" style="white-space:nowrap;flex-shrink:0">✓ 저장</button></div>'
     +'</div>'
     +(S.scriptUrl
       ?'<div class="cfgcard">'
@@ -1445,20 +1443,11 @@ function rSettings(){
       :'')
     +'<div class="cfgcard">'
     +'<div class="cfgtitle">⭐ 대표 선수 지정</div>'
-    +(isAdmin
-      ?'<div style="font-size:11px;color:var(--txt2);margin-bottom:10px;line-height:1.6">기록 탭 달력 및 통계 기본 표시 선수를 지정합니다.</div>'
-        +'<select onchange="S.myPlayer=this.value?parseInt(this.value):null;save();renderCt()" style="width:100%;height:40px;border-radius:var(--r);border:1px solid var(--bdr2);background:var(--bg2);color:var(--txt);font-size:14px;padding:0 10px;font-family:inherit;outline:none">'
-        +'<option value=""'+(S.myPlayer==null?' selected':'')+'>선택 안 함</option>'
-        +[...new Map(ROSTER.map(function(p){return[p.no,p];})).values()].map(function(p){return'<option value="'+p.no+'"'+(S.myPlayer===p.no?' selected':'')+'>'+p.name+' (#'+p.no+')</option>';}).join('')
-        +'</select>'
-      :(function(){
-        var myP=S.myPlayer!=null?ROSTER.find(function(p){return p.no===S.myPlayer;}):null;
-        if(!myP)return'<div style="font-size:13px;color:var(--txt2)">지정된 선수 없음</div>';
-        return'<div style="display:flex;align-items:center;gap:10px;padding:4px 0">'
-          +'<div style="width:38px;height:38px;border-radius:50%;background:var(--navy);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+myP.no+'</div>'
-          +'<div><div style="font-size:16px;font-weight:700;color:var(--txt)">'+esc(myP.name)+'</div><div style="font-size:12px;color:var(--txt2)">'+esc(myP.pos)+'</div></div>'
-          +'</div>';
-      }()))
+    +'<div style="font-size:11px;color:var(--txt2);margin-bottom:10px;line-height:1.6">'+(isAdmin?'기록 탭 달력 및 통계 기본 표시 선수를 지정합니다.':'내 자녀를 선택하면 해당 선수 기록만 표시됩니다.')+'</div>'
+    +'<select onchange="S.myPlayer=this.value?parseInt(this.value):null;save();renderCt()" style="width:100%;height:44px;border-radius:var(--r);border:1px solid var(--bdr2);background:var(--bg2);color:var(--txt);font-size:14px;padding:0 10px;font-family:inherit;outline:none">'
+    +'<option value=""'+(S.myPlayer==null?' selected':'')+'>선택 안 함</option>'
+    +[...new Map(ROSTER.map(function(p){return[p.no,p];})).values()].map(function(p){return'<option value="'+p.no+'"'+(S.myPlayer===p.no?' selected':'')+'>'+p.name+' (#'+p.no+')</option>';}).join('')
+    +'</select>'
     +'</div>'
     +(isAdmin
       ?'<div class="cfgcard" style="margin-bottom:0">'
