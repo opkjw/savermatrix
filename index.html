@@ -969,6 +969,7 @@ function rPitRunInput(){
     runs.slice().reverse().forEach(e=>{
       h+='<div class="rlogitem"><div class="rdot '+(e.earned?'e':'u')+'"></div>'
         +'<div style="flex:1;font-size:12px;color:var(--txt2)">'+(e.earned?'자책점':'비자책점')+'</div>'
+        +'<button onclick="showEditPitRunModal(\''+e.id+'\')" style="background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:5px 8px;font-size:12px;color:var(--txt2);cursor:pointer;font-family:inherit;margin-right:4px">✏</button>'
         +'<button class="rdel" onclick="delPitRun(\''+e.id+'\')">✕</button></div>';
     });
     h+='</div>';
@@ -1271,12 +1272,19 @@ function rLog(){
           +'<div class="logbadge" style="background:var(--red);color:#fff;font-size:11px">#'+pno+'</div>'
           +'<div style="flex:1;min-width:0">'
           +'<div class="logplayer">'+esc(rp.name)+'</div>'
-          +'<div class="logdetail">'+st.ipd+'이닝 · '+st.h+'H · '+st.er+'ER · '+st.bb+'BB · '+st.k+'K'+(pitRuns.length?' · 실점'+pitRuns.length:'')+'</div>'
+          +'<div class="logdetail">'+st.ipd+'이닝 · '+st.h+'H · '+st.er+'ER · '+st.bb+'BB · '+st.k+'K</div>'
           +'</div>'
           +'<span style="font-size:14px;color:var(--txt2);flex-shrink:0">'+(isPExp?'▲':'▼')+'</span>'
           +'</div>';
+        if(pitRuns.length){
+          h+='<div style="font-size:12px;color:var(--txt2);padding:6px 0 2px;display:flex;flex-wrap:wrap;gap:6px">실점: ';
+          pitRuns.forEach(function(r){
+            h+='<span onclick="showEditPitRunModal(\''+r.id+'\')" style="cursor:pointer;background:'+(r.earned?'#fee2e2':'var(--bg2)')+';color:'+(r.earned?'#b91c1c':'var(--txt2)')+';border-radius:4px;padding:3px 8px;font-size:11px;font-weight:600">'+(r.earned?'자책':'비자책')+' ✏</span>';
+          });
+          h+='</div>';
+        }
         if(isPExp){
-          h+='<div style="padding-top:8px;margin-top:8px;border-top:1px solid var(--bdr);display:flex;flex-direction:column;gap:6px">';
+          h+='<div style="padding-top:8px;margin-top:4px;border-top:1px solid var(--bdr);display:flex;flex-direction:column;gap:6px">';
           pbf.filter(function(e){return e.pno===pno;}).slice().reverse().forEach(function(e){
             var oc=ocInfo(e.oc);var sy=S.syncedIds.has(e.id);
             h+='<div style="display:flex;align-items:center;gap:8px">'
@@ -1288,13 +1296,6 @@ function rLog(){
               +'<button onclick="del(\'pbf\',\''+e.id+'\')" style="background:none;border:none;color:var(--txt2);cursor:pointer;font-size:18px;line-height:1;flex-shrink:0;min-height:36px;min-width:36px">✕</button>'
               +'</div>';
           });
-          if(pitRuns.length){
-            h+='<div style="font-size:12px;color:var(--txt2);padding-top:4px;border-top:1px solid var(--bdr)">실점: ';
-            pitRuns.forEach(function(r){
-              h+='<span onclick="showEditPitRunModal(\''+r.id+'\')" style="cursor:pointer;text-decoration:underline;margin-right:8px">'+(r.earned?'자책':'비자책')+' ✏</span>';
-            });
-            h+='</div>';
-          }
           h+='</div>';
         }
         h+='</div>';
