@@ -271,7 +271,7 @@ let S={
   // 투수 입력
   curPit:null,pitSub:0,
   // 통계
-  sprayPlayer:null,pitFocus:null,statsFilter:'all',statsShowAll:false,statTab:0,
+  sprayPlayer:null,pitFocus:null,statsFilter:'all',batShowAll:false,pitShowAll:false,statTab:0,
   // 기록
   logGameId:null,calMonth:null,myPlayer:null,logView:'player',logExpanded:{},logPitView:'player',pitExpanded:{},logSection:'bat',
   // 설정
@@ -1500,8 +1500,8 @@ function rStats(){
   const isAdmin=S.role==='admin'||!S.role;
   const saberFocusNo=isAdmin?(S.sprayPlayer!==null?S.sprayPlayer:myNo):myNo;
   const pitSaberFocusNo=isAdmin?(S.pitFocus!==null?S.pitFocus:myNo):myNo;
-  const showAll=isAdmin?(S.statsShowAll||saberFocusNo===null):false;
-  const pitShowAll=isAdmin?(S.statsShowAll||pitSaberFocusNo===null):false;
+  const showAll=isAdmin?(S.batShowAll||saberFocusNo===null):false;
+  const pitShowAll=isAdmin?(S.pitShowAll||pitSaberFocusNo===null):false;
   const myBatSt=myNo?bs.find(s=>Number(s.no)===myNo):null;
   const myPitSt=myNo?ps.find(s=>Number(s.no)===myNo):null;
   const myName=myNo?(ROSTER.find(x=>x.no===myNo)||{name:'대표선수'}).name:null;
@@ -1509,7 +1509,7 @@ function rStats(){
   const fbBase='padding:6px 14px;border-radius:20px;border:1px solid var(--bdr);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;';
   const fbOn=fbBase+'background:var(--navy);color:#fff;border-color:var(--navy)';
   const fbOff=fbBase+'background:var(--card);color:var(--txt2)';
-  const tbtn=(isAdmin&&saberFocusNo!==null)?'<button onclick="S.statsShowAll='+(!showAll)+';renderCt()" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:12px;padding:2px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit">'+(showAll?'선택만 ▲':'전체 선수 ▼')+'</button>':'';
+  const tbtn=(isAdmin&&saberFocusNo!==null)?'<button onclick="S.batShowAll='+(!showAll)+';renderCt()" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:12px;padding:2px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit">'+(showAll?'선택만 ▲':'전체 선수 ▼')+'</button>':'';
 
   const st=S.statTab||0;
   let h='<div style="display:flex;gap:8px;padding:10px 12px;border-bottom:1px solid var(--bdr);background:var(--card)">'
@@ -1572,7 +1572,7 @@ function rStats(){
   } else {
     // ── 투수 ────────────────────────────────────────────────
     if(ps.length&&pitRows.length){
-      const ptbtn=(isAdmin&&pitSaberFocusNo!==null)?'<button onclick="S.statsShowAll='+(!pitShowAll)+';renderCt()" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:12px;padding:2px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit">'+(pitShowAll?'선택만 ▲':'전체 선수 ▼')+'</button>':'';
+      const ptbtn=(isAdmin&&pitSaberFocusNo!==null)?'<button onclick="S.pitShowAll='+(!pitShowAll)+';renderCt()" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:12px;padding:2px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit">'+(pitShowAll?'선택만 ▲':'전체 선수 ▼')+'</button>':'';
       h+='<div class="seclbl">🎯 투수 기본 기록 <span style="font-size:10px;font-weight:400;color:var(--txt2)">— 이름 탭 → 세이버 연동</span></div>'
         +'<div class="statwrap"><table class="pit"><thead><tr>'
         +'<th style="text-align:left;min-width:62px">선수</th>'
@@ -1731,14 +1731,14 @@ function rSprayChart(pno){
 function setSprayPlayer(pno){
   var key=Number(pno);
   S.sprayPlayer=(S.sprayPlayer===key)?null:key;
-  S.statsShowAll=false;
+  S.batShowAll=false;
   renderCt();
   if(S.sprayPlayer!==null){setTimeout(function(){var el=document.getElementById('spray-section');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},100);}
 }
 function setPitFocus(pno){
   var key=Number(pno);
   S.pitFocus=(S.pitFocus===key)?null:key;
-  S.statsShowAll=false;
+  S.pitShowAll=false;
   renderCt();
   if(S.pitFocus!==null){setTimeout(function(){var el=document.getElementById('pit-saber-section');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},100);}
 }
