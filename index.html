@@ -1740,6 +1740,8 @@ function mergeGames(keepGid,removeGid){
   if(S.logGameId===removeGid)S.logGameId=keepGid;
   save();closeModal();toast('경기 병합 완료 — 다음 동기화 시 서버에 반영됩니다','ok');r();
 }
+function roleRank(r){return r==='admin'?3:r==='recorder'?2:r==='user'?1:2;}
+function roleLblDup(r){return r==='admin'?'👨‍💼 감독/코치':r==='recorder'?'📋 기록자':r==='user'?'👨‍👩‍👦 학부모':'📋 기록자';}
 function showDupGameModal(gid1,gid2){
   var g1=S.games.find(function(g){return g.id===gid1;});
   var g2=S.games.find(function(g){return g.id===gid2;});
@@ -1748,19 +1750,31 @@ function showDupGameModal(gid1,gid2){
   var b2=S.blog.filter(function(e){return e.gid===gid2;}).length;
   var p1=S.pit_bf.filter(function(e){return e.gid===gid1;}).length;
   var p2=S.pit_bf.filter(function(e){return e.gid===gid2;}).length;
-  var card=function(label,g,keep,remove,bc,pc){
-    return '<div style="background:var(--bg2);border-radius:var(--r);padding:12px;margin-bottom:8px">'
-      +'<div style="font-size:12px;font-weight:700;color:var(--txt);margin-bottom:2px">'+label+'</div>'
+  var r1=roleRank(g1.recordedBy),r2=roleRank(g2.recordedBy);
+  // 우선순위: admin > recorder > user. 같으면 기록 수가 많은 쪽 추천
+  var rec1=r1>r2||(r1===r2&&(b1+p1)>=(b2+p2));
+  var card=function(label,keep,remove,bc,pc,g,isRec){
+    var roleBadge=g.recordedBy
+      ?'<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:'+(roleRank(g.recordedBy)>=2?'#EBF0FB':'#f0fdf4')+';color:'+(roleRank(g.recordedBy)>=2?'var(--navy)':'#15803d')+';font-weight:600;margin-left:6px">'+roleLblDup(g.recordedBy)+'</span>'
+      :'';
+    var recBadge=isRec?'<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:#fef3c7;color:#92400e;font-weight:700;margin-left:4px">⭐ 추천</span>':'';
+    var btnStyle='width:100%;padding:9px;border:none;border-radius:var(--r);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;'
+      +(isRec?'background:var(--navy);color:#fff':'background:var(--bg2);color:var(--txt);border:1px solid var(--bdr)');
+    return '<div style="background:var(--bg2);border-radius:var(--r);padding:12px;margin-bottom:8px;'+(isRec?'border:2px solid var(--navy)':'')+'">'
+      +'<div style="display:flex;align-items:center;margin-bottom:2px">'
+      +'<span style="font-size:12px;font-weight:700;color:var(--txt)">'+label+'</span>'+roleBadge+recBadge
+      +'</div>'
       +'<div style="font-size:12px;color:var(--txt2);margin-bottom:8px">타자 '+bc+'건 · 투수 '+pc+'건</div>'
-      +'<button onclick="mergeGames(\''+keep+'\',\''+remove+'\')" style="width:100%;padding:9px;background:var(--navy);color:#fff;border:none;border-radius:var(--r);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">'+label+'로 병합 (나머지 삭제)</button>'
+      +'<button onclick="mergeGames(\''+keep+'\',\''+remove+'\')" style="'+btnStyle+'">'+label+'로 병합 (나머지 삭제)</button>'
       +'</div>';
   };
   document.getElementById('modal-root').innerHTML=
     '<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">'
     +'<h3>중복 경기 처리</h3>'
-    +'<div style="font-size:13px;color:var(--txt2);margin-bottom:12px">'+esc(g1.date)+' vs '+esc(g1.opp)+'</div>'
-    +card('경기 A',g1,gid1,gid2,b1,p1)
-    +card('경기 B',g2,gid2,gid1,b2,p2)
+    +'<div style="font-size:13px;color:var(--txt2);margin-bottom:4px">'+esc(g1.date)+' vs '+esc(g1.opp)+'</div>'
+    +'<div style="font-size:11px;color:var(--txt2);margin-bottom:12px">⭐ 추천 = 기록자/감독 우선 또는 기록 수 많은 경기</div>'
+    +card('경기 A',gid1,gid2,b1,p1,g1,rec1)
+    +card('경기 B',gid2,gid1,b2,p2,g2,!rec1)
     +'<button class="mcancel" onclick="closeModal()" style="width:100%;margin-top:4px">취소</button>'
     +'</div></div>';
 }
@@ -2096,7 +2110,7 @@ function confirmGame(){
   doCreateGame(d,o,t);
 }
 function doCreateGame(d,o,t){
-  S.game={id:UID(),no:S.gcnt++,date:d,opp:o,type:t};
+  S.game={id:UID(),no:S.gcnt++,date:d,opp:o,type:t,recordedBy:S.role||'admin'};
   S.games.push({...S.game});
   S.curPit=null;save();closeModal();r();toast('vs '+o+' '+(t==='P'?'연습':'정식')+'경기 시작!');
 }
