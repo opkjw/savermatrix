@@ -1569,8 +1569,23 @@ function rSettings(){
       +'</div></div>'
     :'';
 
+  var dups=checkDuplicateGames();
+  var dupWarn='';
+  if(dups.length){
+    dupWarn='<div style="background:#FDEDEC;border:1.5px solid #fca5a5;border-radius:var(--rl);padding:12px 14px;margin-bottom:10px">'
+      +'<div style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:8px">⚠ 중복 경기 감지 ('+dups.length+'건)</div>';
+    dups.forEach(function(grp){
+      dupWarn+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">'
+        +'<span style="font-size:12px;color:var(--txt)">'+esc(grp[0].date)+' vs '+esc(grp[0].opp)+'</span>'
+        +'<button onclick="showDupGameModal(\''+grp[0].id+'\',\''+grp[1].id+'\')" style="font-size:11px;padding:5px 12px;background:#fff;border:1.5px solid #fca5a5;border-radius:10px;color:var(--red);cursor:pointer;font-family:inherit;font-weight:600">처리하기</button>'
+        +'</div>';
+    });
+    dupWarn+='</div>';
+  }
+
   return'<div class="cfgwrap">'
     +roleBadge
+    +dupWarn
     +setupGuide
     +'<div class="cfgcard">'
     +'<div class="cfgtitle">🏫 학교 / 팀 정보</div>'
@@ -1704,6 +1719,50 @@ function delGame(gid){
   if(!S.deletedGids.includes(gid))S.deletedGids.push(gid);
   S.syncedIds.delete('g_'+gid);
   save();toast(label+' 삭제됨 (다음 동기화 시 서버에서도 삭제)','ok');r();
+}
+function checkDuplicateGames(){
+  var groups={};
+  S.games.forEach(function(g){
+    var key=(g.date||'')+'__'+(g.opp||'');
+    if(!groups[key])groups[key]=[];
+    groups[key].push(g);
+  });
+  return Object.values(groups).filter(function(grp){return grp.length>1;});
+}
+function mergeGames(keepGid,removeGid){
+  S.blog.forEach(function(e){if(e.gid===removeGid)e.gid=keepGid;});
+  S.pit_bf.forEach(function(e){if(e.gid===removeGid)e.gid=keepGid;});
+  S.pit_runs.forEach(function(e){if(e.gid===removeGid)e.gid=keepGid;});
+  S.games=S.games.filter(function(g){return g.id!==removeGid;});
+  if(!S.deletedGids.includes(removeGid))S.deletedGids.push(removeGid);
+  S.syncedIds.delete('g_'+removeGid);
+  if(S.game&&S.game.id===removeGid){S.game=S.games.find(function(g){return g.id===keepGid;})||null;}
+  if(S.logGameId===removeGid)S.logGameId=keepGid;
+  save();closeModal();toast('경기 병합 완료 — 다음 동기화 시 서버에 반영됩니다','ok');r();
+}
+function showDupGameModal(gid1,gid2){
+  var g1=S.games.find(function(g){return g.id===gid1;});
+  var g2=S.games.find(function(g){return g.id===gid2;});
+  if(!g1||!g2)return;
+  var b1=S.blog.filter(function(e){return e.gid===gid1;}).length;
+  var b2=S.blog.filter(function(e){return e.gid===gid2;}).length;
+  var p1=S.pit_bf.filter(function(e){return e.gid===gid1;}).length;
+  var p2=S.pit_bf.filter(function(e){return e.gid===gid2;}).length;
+  var card=function(label,g,keep,remove,bc,pc){
+    return '<div style="background:var(--bg2);border-radius:var(--r);padding:12px;margin-bottom:8px">'
+      +'<div style="font-size:12px;font-weight:700;color:var(--txt);margin-bottom:2px">'+label+'</div>'
+      +'<div style="font-size:12px;color:var(--txt2);margin-bottom:8px">타자 '+bc+'건 · 투수 '+pc+'건</div>'
+      +'<button onclick="mergeGames(\''+keep+'\',\''+remove+'\')" style="width:100%;padding:9px;background:var(--navy);color:#fff;border:none;border-radius:var(--r);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">'+label+'로 병합 (나머지 삭제)</button>'
+      +'</div>';
+  };
+  document.getElementById('modal-root').innerHTML=
+    '<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">'
+    +'<h3>중복 경기 처리</h3>'
+    +'<div style="font-size:13px;color:var(--txt2);margin-bottom:12px">'+esc(g1.date)+' vs '+esc(g1.opp)+'</div>'
+    +card('경기 A',g1,gid1,gid2,b1,p1)
+    +card('경기 B',g2,gid2,gid1,b2,p2)
+    +'<button class="mcancel" onclick="closeModal()" style="width:100%;margin-top:4px">취소</button>'
+    +'</div></div>';
 }
 
 // ── 기록 편집 ─────────────────────────────────────────────
@@ -2009,14 +2068,47 @@ function setGameType(t){
   document.getElementById('m-gtype').value=t;
 }
 function closeModal(){document.getElementById('modal-root').innerHTML='';}
+var _pendingGame=null;
 function confirmGame(){
   const d=document.getElementById('m-date').value.trim();
   const o=document.getElementById('m-opp').value.trim();
   const t=document.getElementById('m-gtype').value||'O';
   if(!d||!o){toast('날짜와 상대팀을 입력해주세요','err');return;}
+  const dup=S.games.find(function(g){return g.date===d&&g.opp===o&&(!S.game||g.id!==S.game.id);});
+  if(dup){
+    const bCnt=S.blog.filter(function(e){return e.gid===dup.id;}).length;
+    const pCnt=S.pit_bf.filter(function(e){return e.gid===dup.id;}).length;
+    _pendingGame={d:d,o:o,t:t};
+    document.getElementById('modal-root').innerHTML=
+      '<div class="modal-bg"><div class="modal">'
+      +'<h3>⚠ 중복 경기 감지</h3>'
+      +'<div style="font-size:14px;color:var(--txt);line-height:1.7;margin-bottom:14px">'
+      +'같은 날짜와 상대팀의 경기가 이미 있습니다.<br>'
+      +'<strong>'+esc(d)+' vs '+esc(o)+'</strong><br>'
+      +'<span style="font-size:12px;color:var(--txt2)">타자 '+bCnt+'건 · 투수 '+pCnt+'건 기록됨</span>'
+      +'</div>'
+      +'<div class="mbtns">'
+      +'<button class="mcancel" onclick="resumeExistingGame(\''+dup.id+'\')" style="flex:1;background:#EBF0FB;color:var(--navy);border-color:#93c5fd">이어서 입력</button>'
+      +'<button class="mok" onclick="forceCreateGame()" style="flex:1">새로 생성</button>'
+      +'</div></div></div>';
+    return;
+  }
+  doCreateGame(d,o,t);
+}
+function doCreateGame(d,o,t){
   S.game={id:UID(),no:S.gcnt++,date:d,opp:o,type:t};
   S.games.push({...S.game});
   S.curPit=null;save();closeModal();r();toast('vs '+o+' '+(t==='P'?'연습':'정식')+'경기 시작!');
+}
+function resumeExistingGame(gid){
+  const g=S.games.find(function(x){return x.id===gid;});
+  if(!g)return;
+  S.game={...g};S.curPit=null;save();closeModal();r();toast('기존 경기 이어서 입력합니다','ok');
+}
+function forceCreateGame(){
+  if(!_pendingGame)return;
+  doCreateGame(_pendingGame.d,_pendingGame.o,_pendingGame.t);
+  _pendingGame=null;
 }
 
 // ── URL / 동기화 / 불러오기 ───────────────────────────────
@@ -2119,6 +2211,8 @@ async function loadFromSheets(){
     const svrTotal=(data.games||[]).length+(data.bat_log||[]).length+(data.pit_bf||[]).length+(data.pit_runs||[]).length;
     const rMsg=data.roster&&data.roster.length>0?' / 선수 '+data.roster.length+'명':'';
     toast('✓ 불러오기 완료 ('+svrTotal+'건)'+rMsg,'ok');
+    var dups=checkDuplicateGames();
+    if(dups.length)setTimeout(function(){toast('⚠ 중복 경기 '+dups.length+'건 감지 — 설정에서 처리하세요','err');},1800);
   }catch(e){toast('불러오기 실패 — URL 확인','err');console.error(e);}
   S.loading=false;r();
 }
