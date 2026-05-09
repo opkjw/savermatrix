@@ -814,6 +814,7 @@ function setTab(i){if(i===3&&S.role==='recorder')return;S.tab=i;r();}
 
 // ── 타자 탭 ──────────────────────────────────────────────
 function rBatTab(){
+  if(!S.game)return '<div class="empty" style="padding:40px 24px;line-height:2.2;text-align:center">⚾<br><strong style="font-size:15px">경기가 시작되지 않았습니다</strong><br><span style="font-size:13px;color:var(--txt2)">타자 기록을 입력하려면<br>경기를 먼저 시작해주세요</span><br><br><button class="savebtn" onclick="showGameModal()">+ 경기 시작</button></div>';
   return S.bs===0?rBatPSel():S.bs===1?rOCSel('bat'):S.bs===2?rRunConfirm():rExtras();
 }
 function rRunInput(){
@@ -907,6 +908,7 @@ function rExtras(){
 
 // ── 투수 탭 ──────────────────────────────────────────────
 function rPitTab(){
+  if(!S.game)return '<div class="empty" style="padding:40px 24px;line-height:2.2;text-align:center">🎯<br><strong style="font-size:15px">경기가 시작되지 않았습니다</strong><br><span style="font-size:13px;color:var(--txt2)">투수 기록을 입력하려면<br>경기를 먼저 시작해주세요</span><br><br><button class="savebtn" onclick="showGameModal()">+ 경기 시작</button></div>';
   if(S.curPit===null||S.curPit===undefined){
     let h='<div class="seclbl">현재 투수 선택</div><div class="pgrid">';
     const pitAllowedNos=getAllowedNos();
