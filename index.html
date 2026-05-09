@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="야구기록">
 <meta name="theme-color" content="#1B3A6B">
 <title>⚾ 우리아이 야구 기록 Ball Matrix</title>
-<!-- version: 2026-05-09 -->
+<!-- version: 2026-05-10 -->
 <style>
 :root{--navy:#1B3A6B;--red:#922B21;--bg:#f9fafb;--card:#ffffff;--bg2:#f3f4f6;--txt:#111827;--txt2:#5a6370;--bdr:#e5e7eb;--bdr2:#d1d5db;--r:8px;--rl:12px;--sfb:env(safe-area-inset-bottom,0px);}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -102,7 +102,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans KR'
 table{width:100%;border-collapse:collapse;font-size:11px;min-width:360px}
 th{padding:7px 5px;text-align:center;font-weight:600;white-space:nowrap;background:var(--navy);color:#fff}
 table.pit th{background:var(--red)}
-td{padding:6px 5px;text-align:center;border-bottom:1px solid var(--bdr);color:var(--txt);white-space:nowrap}
+td{padding:10px 5px;text-align:center;border-bottom:1px solid var(--bdr);color:var(--txt);white-space:nowrap}
 tr:nth-child(even) td{background:var(--bg2)}
 .hi{color:var(--navy);font-weight:600}.hir{color:var(--red);font-weight:600}
 .sth{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;text-decoration-color:rgba(255,255,255,.5)}
@@ -271,7 +271,7 @@ let S={
   // 투수 입력
   curPit:null,pitSub:0,
   // 통계
-  sprayPlayer:null,statsFilter:'all',statsShowAll:false,statTab:0,
+  sprayPlayer:null,pitFocus:null,statsFilter:'all',statsShowAll:false,statTab:0,
   // 기록
   logGameId:null,calMonth:null,myPlayer:null,logView:'player',logExpanded:{},logPitView:'player',pitExpanded:{},logSection:'bat',
   // 설정
@@ -1499,7 +1499,9 @@ function rStats(){
   const myNo=activeNo()!=null?Number(activeNo()):null;
   const isAdmin=S.role==='admin'||!S.role;
   const saberFocusNo=isAdmin?(S.sprayPlayer!==null?S.sprayPlayer:myNo):myNo;
+  const pitSaberFocusNo=isAdmin?(S.pitFocus!==null?S.pitFocus:myNo):myNo;
   const showAll=isAdmin?(S.statsShowAll||saberFocusNo===null):false;
+  const pitShowAll=isAdmin?(S.statsShowAll||pitSaberFocusNo===null):false;
   const myBatSt=myNo?bs.find(s=>Number(s.no)===myNo):null;
   const myPitSt=myNo?ps.find(s=>Number(s.no)===myNo):null;
   const myName=myNo?(ROSTER.find(x=>x.no===myNo)||{name:'대표선수'}).name:null;
@@ -1547,7 +1549,7 @@ function rStats(){
         +'</tr></thead><tbody>';
       batRows.forEach(s=>{
         const sel=Number(s.no)===activeSprayNo;
-        h+='<tr style="cursor:pointer" onclick="setSprayPlayer('+Number(s.no)+')">'
+        h+='<tr style="cursor:pointer;background:'+(sel?'rgba(27,58,107,.07)':'none')+'" onclick="setSprayPlayer('+Number(s.no)+')">'
           +'<td style="text-align:left;font-weight:700;color:'+(sel?'var(--navy)':'var(--txt)')+';text-decoration:'+(sel?'underline':'none')+'">'+esc(s.name)+(sel?' 📍':'')+'</td>'
           +'<td>'+s.pa+'</td><td>'+s.ab+'</td><td>'+s.h+'</td><td>'+s.d2+'</td><td>'+s.d3+'</td>'
           +'<td style="color:var(--red);font-weight:600">'+s.hr+'</td>'
@@ -1570,14 +1572,17 @@ function rStats(){
   } else {
     // ── 투수 ────────────────────────────────────────────────
     if(ps.length&&pitRows.length){
-      h+='<div class="seclbl">🎯 투수 기본 기록</div>'
+      const ptbtn=(isAdmin&&pitSaberFocusNo!==null)?'<button onclick="S.statsShowAll='+(!pitShowAll)+';renderCt()" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:12px;padding:2px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit">'+(pitShowAll?'선택만 ▲':'전체 선수 ▼')+'</button>':'';
+      h+='<div class="seclbl">🎯 투수 기본 기록 <span style="font-size:10px;font-weight:400;color:var(--txt2)">— 이름 탭 → 세이버 연동</span></div>'
         +'<div class="statwrap"><table class="pit"><thead><tr>'
         +'<th style="text-align:left;min-width:62px">선수</th>'
         +'<th>G</th><th>IP</th><th>H</th><th>BB</th>'
         +'<th style="color:#93c5fd">K</th><th style="color:#fca5a5">HR</th><th>ER</th><th>R</th>'
         +'</tr></thead><tbody>';
       pitRows.forEach(s=>{
-        h+='<tr><td style="text-align:left;font-weight:700">'+esc(s.name)+'</td>'
+        const sel=Number(s.no)===pitSaberFocusNo;
+        h+='<tr style="cursor:pointer;background:'+(sel?'rgba(146,43,33,.07)':'none')+'" onclick="setPitFocus('+Number(s.no)+')">'
+          +'<td style="text-align:left;font-weight:700;color:'+(sel?'var(--red)':'var(--txt)')+';text-decoration:'+(sel?'underline':'none')+'">'+esc(s.name)+(sel?' 📍':'')+'</td>'
           +'<td>'+s.g+'</td><td>'+s.ipd+'</td><td>'+s.h+'</td><td>'+s.bb+'</td>'
           +'<td style="color:#1d4ed8;font-weight:600">'+s.k+'</td>'
           +'<td style="color:var(--red)">'+s.hr+'</td>'
@@ -1586,12 +1591,13 @@ function rStats(){
       });
       h+='</tbody></table></div>';
 
-      h+='<div class="seclbl" style="display:flex;align-items:center">📈 투수 세이버매트릭스 <span style="font-size:10px;font-weight:400;color:var(--txt2);margin-left:4px">— MLB 기준 색상</span>'+tbtn+'</div>';
+      const sortedPs=pitSaberFocusNo?[...ps].sort((a,b)=>(Number(b.no)===pitSaberFocusNo?1:0)-(Number(a.no)===pitSaberFocusNo?1:0)):ps;
+      h+='<div id="pit-saber-section" class="seclbl" style="display:flex;align-items:center">📈 투수 세이버매트릭스 <span style="font-size:10px;font-weight:400;color:var(--txt2);margin-left:4px">— MLB 기준 색상</span>'+ptbtn+'</div>';
       if(myNo&&!myPitSt&&!isAdmin){
         h+=rNoRecMsg(myName,'투수');
-        if(showAll)ps.forEach(function(s){h+=rPitTile(s,saberFocusNo);});
+        if(pitShowAll)sortedPs.forEach(function(s){h+=rPitTile(s,pitSaberFocusNo);});
       } else {
-        (showAll?ps:ps.filter(s=>Number(s.no)===saberFocusNo)).forEach(function(s){h+=rPitTile(s,saberFocusNo);});
+        (pitShowAll?sortedPs:sortedPs.filter(s=>Number(s.no)===pitSaberFocusNo)).forEach(function(s){h+=rPitTile(s,pitSaberFocusNo);});
       }
     } else {
       h+='<div class="empty" style="padding:32px">'+((!isAdmin&&myNo&&!myPitSt)?rNoRecMsg(myName,'투수'):'투수 기록이 없습니다.')+'</div>';
@@ -1728,6 +1734,13 @@ function setSprayPlayer(pno){
   S.statsShowAll=false;
   renderCt();
   if(S.sprayPlayer!==null){setTimeout(function(){var el=document.getElementById('spray-section');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},100);}
+}
+function setPitFocus(pno){
+  var key=Number(pno);
+  S.pitFocus=(S.pitFocus===key)?null:key;
+  S.statsShowAll=false;
+  renderCt();
+  if(S.pitFocus!==null){setTimeout(function(){var el=document.getElementById('pit-saber-section');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},100);}
 }
 
 // ── 설정 탭 ──────────────────────────────────────────────
