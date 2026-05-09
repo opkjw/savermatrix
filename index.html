@@ -243,12 +243,13 @@ const OC_OB=[
 ];
 const OC_OUT=[
   {id:"K",l:"삼진",bg:"#6b7280",fg:"#f9fafb"},
+  {id:"KWP",l:"낫아웃",bg:"#ddd6fe",fg:"#5b21b6"},
   {id:"GO",l:"땅볼",bg:"#e5e7eb",fg:"#374151"},
   {id:"FO",l:"뜬공",bg:"#e5e7eb",fg:"#374151"},
   {id:"DP",l:"병살타",bg:"#9ca3af",fg:"#1f2937"},
   {id:"SF",l:"희생플라이",bg:"#fde68a",fg:"#78350f"},
   {id:"SH",l:"희생번트",bg:"#fde68a",fg:"#78350f"},
-  {id:"FC",l:"야선택",bg:"#e5e7eb",fg:"#374151"},
+  {id:"FC",l:"야수선택",bg:"#e5e7eb",fg:"#374151"},
   {id:"E",l:"실책출루",bg:"#e5e7eb",fg:"#374151"},
 ];
 const ALL_OC=[...OC_HIT,...OC_OB,...OC_OUT];
@@ -348,7 +349,7 @@ function paS(o){
   const noAB=["BB","IBB","HBP","SF","SH"],hits=["1B","2B","3B","HR"];
   return{pa:1,ab:noAB.includes(o)?0:1,h:hits.includes(o)?1:0,
     d2:o==="2B"?1:0,d3:o==="3B"?1:0,hr:o==="HR"?1:0,
-    bb:(o==="BB"||o==="IBB")?1:0,hbp:o==="HBP"?1:0,so:o==="K"?1:0,sf:o==="SF"?1:0};
+    bb:(o==="BB"||o==="IBB")?1:0,hbp:o==="HBP"?1:0,so:(o==="K"||o==="KWP")?1:0,sf:o==="SF"?1:0};
 }
 // MLB 기준 등급 판별
 const MLB_BENCH={
