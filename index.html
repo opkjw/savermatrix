@@ -290,7 +290,7 @@ function load(){
       if(d.setupDone!==undefined)S.setupDone=d.setupDone;
       else S.setupDone=!!(S.scriptUrl||S.games.length>0||S.schoolName);
       if(d.setupStep!==undefined)S.setupStep=d.setupStep;
-      if(d.roster&&d.roster.length>0)ROSTER.splice(0,ROSTER.length,...d.roster);
+      if(d.roster&&d.roster.length>0){parseRosterSiblings(d.roster);ROSTER.splice(0,ROSTER.length,...d.roster);}
     }
     var sr=sessionStorage.getItem('bb_role');
     if(sr)S.role=sr;
@@ -307,6 +307,22 @@ function save(){
   }catch(e){console.error(e);}
 }
 
+function parseRosterSiblings(roster){
+  (roster||[]).forEach(function(p){
+    if(!p.siblings||p.siblings===''||p.siblings===null){p.siblings=[];return;}
+    if(Array.isArray(p.siblings))return;
+    if(typeof p.siblings==='string'){
+      var s=p.siblings.trim();
+      try{
+        var parsed=JSON.parse(s);
+        p.siblings=Array.isArray(parsed)?parsed.map(Number).filter(function(n){return!isNaN(n);}):[];
+      }catch(e){
+        // "5,7" 형식 fallback
+        p.siblings=s.split(',').map(function(x){return parseInt(x.trim());}).filter(function(n){return!isNaN(n);});
+      }
+    }
+  });
+}
 function getSiblingGroup(){
   if(!S.myPlayer)return[];
   // 같은 번호가 타자/투수 두 항목으로 있을 수 있으므로 모든 항목에서 siblings 수집
@@ -659,7 +675,7 @@ async function saveSetupUrl(){
     S.blog=data.bat_log||[];
     S.pit_bf=data.pit_bf||[];
     S.pit_runs=data.pit_runs||[];
-    if(data.roster&&data.roster.length>0)ROSTER.splice(0,ROSTER.length,...data.roster);
+    if(data.roster&&data.roster.length>0){parseRosterSiblings(data.roster);ROSTER.splice(0,ROSTER.length,...data.roster);}
     S.syncedIds=new Set();
     (data.games||[]).forEach(function(g){S.syncedIds.add('g_'+g.id);});
     (data.bat_log||[]).forEach(function(e){S.syncedIds.add(e.id);});
@@ -2226,7 +2242,7 @@ async function loadFromSheets(){
     S.pit_bf=[...(data.pit_bf||[]),...unsyncedPitBf.filter(e=>!svrPitBfIds.has(e.id))];
     S.pit_runs=[...(data.pit_runs||[]),...unsyncedPitRuns.filter(e=>!svrPitRunIds.has(e.id))];
 
-    if(data.roster&&data.roster.length>0){ROSTER.splice(0,ROSTER.length,...data.roster);S.rosterDirty=false;}
+    if(data.roster&&data.roster.length>0){parseRosterSiblings(data.roster);ROSTER.splice(0,ROSTER.length,...data.roster);S.rosterDirty=false;}
 
     // syncedIds 재구성: 서버에서 온 항목만 synced로 표시
     S.syncedIds=new Set();

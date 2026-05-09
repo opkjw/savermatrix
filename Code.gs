@@ -196,9 +196,18 @@ function doGet(e) {
       const sh = getSheet(SHEETS.roster);
       sh.clearContents();
       if (roster.length) {
-        const hdrs = Object.keys(roster[0]);
+        // 모든 선수 항목의 키를 합산해 헤더 생성 (첫 항목만 보면 siblings 등 누락 가능)
+        const keySet = new Set();
+        roster.forEach(function(p) { Object.keys(p).forEach(function(k) { keySet.add(k); }); });
+        const hdrs = Array.from(keySet);
         sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]);
-        const rows = roster.map(p => hdrs.map(h => p[h] !== undefined && p[h] !== null ? p[h] : ''));
+        const rows = roster.map(function(p) {
+          return hdrs.map(function(h) {
+            var v = p[h];
+            if (Array.isArray(v)) return JSON.stringify(v); // 배열은 JSON 문자열로 저장
+            return (v !== undefined && v !== null) ? v : '';
+          });
+        });
         sh.getRange(2, 1, rows.length, hdrs.length).setValues(rows);
       }
       return out({ status: 'ok' });
