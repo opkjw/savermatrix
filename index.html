@@ -8,17 +8,21 @@
 <meta name="apple-mobile-web-app-title" content="야구기록">
 <meta name="theme-color" content="#1B3A6B">
 <title>⚾ 우리아이 야구 기록 Ball Matrix</title>
+<!-- version: 2026-05-09 -->
 <style>
 :root{--navy:#1B3A6B;--red:#922B21;--bg:#f9fafb;--card:#ffffff;--bg2:#f3f4f6;--txt:#111827;--txt2:#5a6370;--bdr:#e5e7eb;--bdr2:#d1d5db;--r:8px;--rl:12px;--sfb:env(safe-area-inset-bottom,0px);}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden;background:#000}
 body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans KR',sans-serif}
 #app{max-width:430px;margin:0 auto;height:100%;display:flex;flex-direction:column;background:var(--bg)}
-.ghdr{background:var(--navy);color:#fff;padding:11px 14px;padding-top:calc(11px + env(safe-area-inset-top,0px));display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.ghdr{background:var(--navy);color:#fff;padding:11px 14px;padding-top:calc(11px + env(safe-area-inset-top,0px));display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:relative}
+.gh-score{position:absolute;left:50%;transform:translateX(-50%);text-align:center;line-height:1;pointer-events:none}
+.gh-score-num{font-size:20px;font-weight:700;letter-spacing:2px}
+.gh-score-lbl{font-size:11px;opacity:.8;display:flex;justify-content:space-between;margin-top:3px}
 .gh-title{font-size:15px;font-weight:600}.gh-sub{font-size:11px;opacity:.72;margin-top:2px}
 .gh-right{display:flex;align-items:center;gap:6px}
 .gh-btn{background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 10px;border-radius:var(--r);font-size:12px;cursor:pointer;font-family:inherit;min-height:44px}
-.gh-icon{background:none;border:none;color:rgba(255,255,255,.75);font-size:20px;cursor:pointer;padding:2px;line-height:1;position:relative}
+.gh-icon{background:none;border:none;color:rgba(255,255,255,.75);font-size:20px;cursor:pointer;padding:10px;line-height:1;position:relative;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center}
 .pdot{position:absolute;top:1px;right:1px;width:7px;height:7px;border-radius:50%;background:#f59e0b;border:1.5px solid var(--navy)}
 .tabbar{display:flex;background:var(--card);border-top:1px solid var(--bdr);flex-shrink:0;padding-bottom:var(--sfb)}
 .tab{flex:1;padding:8px 2px 10px;text-align:center;border:none;background:none;cursor:pointer;font-size:12px;color:var(--txt2);line-height:1.3;font-family:inherit}
@@ -755,11 +759,20 @@ function confirmPlayerSel(){
 function renderGHdr(){
   const pc=pendingCount();
   const isFirstVisit=!S.setupDone;
+  var scoreHtml='';
+  if(S.game&&(S.tab===0||S.tab===1)){
+    var sc=gameScore(S.game.id);
+    scoreHtml='<div class="gh-score">'
+      +'<div class="gh-score-num">'+sc.our+' : '+sc.opp+'</div>'
+      +'<div class="gh-score-lbl"><span>우리</span><span>상대</span></div>'
+      +'</div>';
+  }
   document.getElementById('ghdr').innerHTML=S.game
     ?('<div class="ghdr"><div><div class="gh-title">vs '+esc(S.game.opp)+'</div>'
       +'<div class="gh-sub">'+esc(S.game.date)+' · G'+String(S.game.no).padStart(2,'0')
       +(S.game.type==='P'?' · <span style="background:rgba(255,255,255,.25);border-radius:3px;padding:1px 6px;font-size:10px">연습</span>':'')
       +'</div></div>'
+      +scoreHtml
       +'<div class="gh-right">'
       +'<button class="gh-icon" onclick="setTab(4)">☁'+(pc>0?'<div class="pdot"></div>':'')+'</button>'
       +'<button class="gh-btn" onclick="showGameModal()" style="background:rgba(255,255,255,.15)">변경</button>'
@@ -2072,7 +2085,7 @@ function addBatRun(pno){
   const entries=S.blog.filter(e=>e.gid===S.game.id&&e.pno===pno);
   if(!entries.length){const p=ROSTER.find(x=>x.no===pno);S.blog.push({id:UID(),gid:S.game.id,date:S.game.date,opp:S.game.opp,pno:p.no,pn:p.name,oc:'_RUN',rbi:0,run:1,sb:0,cs:0});}
   else entries[entries.length-1].run=(entries[entries.length-1].run||0)+1;
-  save();const p=ROSTER.find(x=>x.no===pno);toast(p.name+' 득점!','ok');
+  save();const p=ROSTER.find(x=>x.no===pno);toast(p.name+' 득점!','ok');renderGHdr();
   const row=document.getElementById('rr-'+pno);
   if(row){row.classList.remove('flash');void row.offsetWidth;row.classList.add('flash');
     const c=row.querySelectorAll('div div')[1];if(c)c.textContent='이번 경기 '+getRunsThisGame(pno)+'득점';}
@@ -2081,7 +2094,7 @@ function addPitRun(earned){
   if(!S.game){toast('경기를 먼저 시작해주세요','err');return;}
   const p=ROSTER.find(x=>x.no===S.curPit);
   S.pit_runs.push({id:UID(),gid:S.game.id,pno:p.no,pn:p.name,earned});
-  save();toast(p.name+' '+(earned?'자책점':'비자책점'),'ok');renderCt();
+  save();toast(p.name+' '+(earned?'자책점':'비자책점'),'ok');renderGHdr();renderCt();
 }
 function delPitRun(id){S.pit_runs=S.pit_runs.filter(e=>e.id!==id);save();renderCt();}
 function rBaseDiagram(){
@@ -2791,6 +2804,7 @@ async function loadFromSheets(){
 
 document.addEventListener('keydown',function(e){if(e.key!=='Enter')return;if(document.getElementById('pin-input')===document.activeElement){doLogin();return;}if(document.getElementById('m-opp'))confirmGame();});
 load();r();
+if(navigator.serviceWorker){navigator.serviceWorker.register('./sw.js').catch(function(e){console.log('SW registration failed',e);});}
 </script>
 </body>
 </html>
