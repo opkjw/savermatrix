@@ -508,7 +508,7 @@ function renderSetup(){
   ol.style.display='flex';
   var step=S.setupStep||0;
   var dots='<div class="su-progress">'
-    +(step>0?[1,2,3].map(function(i){return'<div class="su-dot'+(i<=step?' on':'')+'"></div>';}).join(''):'')
+    +(step>0?[1,2,3,4].map(function(i){return'<div class="su-dot'+(i<=step?' on':'')+'"></div>';}).join(''):'')
     +'</div>';
   var body='',actions='';
   if(step===0){
@@ -528,6 +528,17 @@ function renderSetup(){
       +'<div class="su-connst" id="su-connst"></div>';
     actions='<button class="su-next" id="su-fetch-btn" onclick="saveSetupUrl()">연결 및 불러오기</button>';
   } else if(step===2){
+    // 학교/팀명 입력
+    body='<div class="su-icon">🏫</div>'
+      +'<div class="su-title">우리 팀 이름을<br>알려주세요</div>'
+      +'<div class="su-desc">학교 또는 팀 이름을 입력해주세요</div>'
+      +'<div class="su-field">'
+      +'<div class="su-lbl">학교 / 팀명</div>'
+      +'<input class="su-input" id="su-school" type="text" placeholder="예: 한국초등학교 야구단" value="'+esc(S.schoolName)+'" maxlength="20" autocomplete="off">'
+      +'</div>'
+      +'<div class="su-connst" id="su-school-st"></div>';
+    actions='<button class="su-next" onclick="saveSetupSchool()">다음</button>';
+  } else if(step===3){
     // 우리 아이 선택
     var rosterHtml='';
     var uniquePlayers=[...new Map(ROSTER.map(function(p){return[p.no,p];})).values()];
@@ -543,7 +554,7 @@ function renderSetup(){
       +'<div class="su-title">우리 아이를<br>선택해주세요</div>'
       +'<div class="su-desc" style="margin-bottom:16px">선택한 선수의 기록만<br>학부모 모드에서 표시됩니다</div>'
       +'<div style="width:100%;max-height:260px;overflow-y:auto;-webkit-overflow-scrolling:touch">'+rosterHtml+'</div>';
-    actions='<button class="su-next" onclick="finishSetup(false)">학부모 모드로 시작</button>'
+    actions='<button class="su-next" onclick="S.setupStep=4;save();renderSetup()">학부모 모드로 시작</button>'
       +(S.myPlayer==null?'<button class="su-skip" onclick="finishSetup(true)">코치 / 감독 모드로 시작</button>':'');
   } else {
     // 완료
@@ -553,12 +564,24 @@ function renderSetup(){
       +'<div class="su-desc">학부모 모드로 시작합니다</div>'
       +'<div class="su-summary">'
       +(myP?'👦 '+esc(myP.name)+' (#'+myP.no+')<br>':'')
+      +(S.schoolName?'🏫 '+esc(S.schoolName)+'<br>':'')
       +(S.scriptUrl?'☁ 구글 시트 연동 완료':'')
       +'</div>';
     actions='<button class="su-next" onclick="finishSetup(false)">앱 시작하기 →</button>';
   }
   ol.innerHTML=dots+'<div class="su-body">'+body+'</div>'+'<div class="su-actions">'+actions+'</div>';
   if(step===1)setTimeout(function(){var el=document.getElementById('su-url');if(el)el.focus();},100);
+  if(step===2)setTimeout(function(){var el=document.getElementById('su-school');if(el)el.focus();},100);
+}
+function saveSetupSchool(){
+  var el=document.getElementById('su-school');
+  var name=el?el.value.trim():'';
+  if(!name){
+    var st=document.getElementById('su-school-st');
+    if(st){st.textContent='⚠ 팀/학교명을 입력해주세요.';st.style.color='#fca5a5';}
+    return;
+  }
+  S.schoolName=name;S.setupStep=3;save();renderSetup();
 }
 async function saveSetupUrl(){
   var el=document.getElementById('su-url');
@@ -1716,7 +1739,8 @@ function toggleSibling(no,sibNo){
 function showEditPlayerModal(no,role){
   const p=ROSTER.find(x=>x.no===no&&x.r===role);if(!p)return;
   const sibs=p.siblings||[];
-  const others=ROSTER.filter(function(x){return x.no!==no;});
+  var _seenNos=new Set();
+  const others=ROSTER.filter(function(x){return x.no!==no&&!_seenNos.has(x.no)&&_seenNos.add(x.no);});
   var sibSection='<div class="mlbl" style="margin-top:12px">형제 연결 <span style="font-weight:400;font-size:11px;color:var(--txt2)">(같은 팀 형제 선택)</span></div>';
   if(others.length){
     sibSection+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">';
