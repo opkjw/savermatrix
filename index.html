@@ -847,7 +847,7 @@ function rBatPSel(){
 }
 function rOCSel(mode){
   const isP=mode==='pit';
-  const p=isP?ROSTER.find(x=>x.no===S.curPit):ROSTER.find(x=>x.no===S.bp);
+  const p=isP?ROSTER.find(x=>String(x.no)===String(S.curPit)):ROSTER.find(x=>String(x.no)===String(S.bp));
   if(!p)return'<div class="empty">선수를 먼저 선택하세요</div>';
   let h='<div class="shdr"><button class="back" onclick="'+(isP?'S.ps=0':'S.bs=0')+';r()">←</button>'
     +'<div><div class="s-title">'+esc(p.name)+' <span style="font-size:11px;color:var(--txt2)">#'+p.no+'</span></div>'
@@ -901,7 +901,7 @@ function rExtras(){
 
 // ── 투수 탭 ──────────────────────────────────────────────
 function rPitTab(){
-  if(!S.curPit){
+  if(S.curPit===null||S.curPit===undefined){
     let h='<div class="seclbl">현재 투수 선택</div><div class="pgrid">';
     const pitAllowedNos=getAllowedNos();
     ROSTER.filter(p=>p.r==='p'&&(!pitAllowedNos||pitAllowedNos.indexOf(p.no)>=0)).forEach(p=>{
@@ -912,7 +912,8 @@ function rPitTab(){
     });
     return h+'</div>';
   }
-  const p=ROSTER.find(x=>x.no===S.curPit);
+  const p=ROSTER.find(x=>String(x.no)===String(S.curPit));
+  if(!p){S.curPit=null;return rPitTab();}
   const gid=S.game?S.game.id:null;
   const st=calcPitStats(S.curPit,gid);
   let h='<div class="pcard">'
@@ -1696,7 +1697,7 @@ function endGame(){
 }
 function selBat(no){S.bp=no;S.bs=1;r();}
 function selOC(id){S.bo=id;S.brbi=S.bsb=S.bcs=0;S.bzone=null;S.bs=2;r();}
-function selPit(no){S.curPit=no;S.pitSub=0;r();}
+function selPit(no){S.curPit=(no!==null&&no!==undefined)?Number(no):no;S.pitSub=0;r();}
 function adj(key,d){
   S[key]=Math.max(0,(S[key]||0)+d);
   const el=document.getElementById('ev-'+key);if(el)el.textContent=S[key];
