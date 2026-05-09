@@ -267,7 +267,7 @@ let S={
   // 투수 입력
   curPit:null,pitSub:0,
   // 통계
-  sprayPlayer:null,statsFilter:'all',statsShowAll:false,
+  sprayPlayer:null,statsFilter:'all',statsShowAll:false,statTab:0,
   // 기록
   logGameId:null,calMonth:null,myPlayer:null,logView:'player',logExpanded:{},logPitView:'player',pitExpanded:{},logSection:'bat',
   // 설정
@@ -1494,10 +1494,15 @@ function rStats(){
   const fbOff=fbBase+'background:var(--card);color:var(--txt2)';
   const tbtn=(isAdmin&&saberFocusNo!==null)?'<button onclick="S.statsShowAll='+(!showAll)+';renderCt()" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:12px;padding:2px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit">'+(showAll?'선택만 ▲':'전체 선수 ▼')+'</button>':'';
 
+  const st=S.statTab||0;
   let h='<div style="display:flex;gap:8px;padding:10px 12px;border-bottom:1px solid var(--bdr);background:var(--card)">'
     +'<button onclick="S.statsFilter=\'all\';renderCt()" style="'+(sf==='all'?fbOn:fbOff)+'">전체 '+totalG+'</button>'
     +'<button onclick="S.statsFilter=\'O\';renderCt()" style="'+(sf==='O'?fbOn:fbOff)+'">정식 '+offG+'</button>'
     +'<button onclick="S.statsFilter=\'P\';renderCt()" style="'+(sf==='P'?fbOn:fbOff)+'">연습 '+praG+'</button>'
+    +'</div>';
+  h+='<div class="stabs">'
+    +'<button class="stab bat'+(st===0?' on':'')+'" onclick="S.statTab=0;renderCt()">🏏 타자</button>'
+    +'<button class="stab pit'+(st===1?' on':'')+'" onclick="S.statTab=1;renderCt()">⚾ 투수</button>'
     +'</div>';
 
   if(!bs.length&&!ps.length)return h+'<div class="empty" style="padding:32px">해당 경기 기록이 없습니다.</div>';
@@ -1511,69 +1516,71 @@ function rStats(){
   const batRows=isAdmin?bs:bs.filter(s=>Number(s.no)===myNo);
   const pitRows=isAdmin?ps:ps.filter(s=>Number(s.no)===myNo);
 
-  // ── 타자 ──────────────────────────────────────────────────
-  if(bs.length&&batRows.length){
-    const activeSprayNo=S.sprayPlayer!==null?S.sprayPlayer:(myBatSt?Number(myBatSt.no):null);
-    h+='<div class="seclbl">🏏 타자 기본 기록 <span style="font-size:10px;font-weight:400;color:var(--txt2)">— 이름 탭 → '+(isAdmin?'스프레이+세이버 연동':'스프레이 차트'+(myBatSt?' · 대표 자동':''))+'</span></div>'
-      +'<div class="statwrap"><table><thead><tr>'
-      +'<th style="text-align:left;min-width:62px">선수</th>'
-      +'<th class="sth" onclick="showStatInfo(\'PA\')">PA</th><th class="sth" onclick="showStatInfo(\'AB\')">AB</th>'
-      +'<th class="sth" onclick="showStatInfo(\'H\')">H</th><th class="sth" onclick="showStatInfo(\'2B\')">2B</th>'
-      +'<th class="sth" onclick="showStatInfo(\'3B\')">3B</th><th class="sth" onclick="showStatInfo(\'HR\')" style="color:#fca5a5">HR</th>'
-      +'<th class="sth" onclick="showStatInfo(\'RBI\')">RBI</th><th class="sth" onclick="showStatInfo(\'R\')">R</th>'
-      +'<th class="sth" onclick="showStatInfo(\'BB\')">BB</th><th class="sth" onclick="showStatInfo(\'K\')">K</th>'
-      +'<th class="sth" onclick="showStatInfo(\'SB\')">SB</th>'
-      +'</tr></thead><tbody>';
-    batRows.forEach(s=>{
-      const sel=Number(s.no)===activeSprayNo;
-      h+='<tr style="cursor:pointer" onclick="setSprayPlayer('+Number(s.no)+')">'
-        +'<td style="text-align:left;font-weight:700;color:'+(sel?'var(--navy)':'var(--txt)')+';text-decoration:'+(sel?'underline':'none')+'">'+esc(s.name)+(sel?' 📍':'')+'</td>'
-        +'<td>'+s.pa+'</td><td>'+s.ab+'</td><td>'+s.h+'</td><td>'+s.d2+'</td><td>'+s.d3+'</td>'
-        +'<td style="color:var(--red);font-weight:600">'+s.hr+'</td>'
-        +'<td>'+s.rbi+'</td><td>'+s.run+'</td><td>'+s.bb+'</td><td>'+s.so+'</td><td>'+s.sb+'</td></tr>';
-    });
-    h+='</tbody></table></div>';
-    if(activeSprayNo!==null)h+=rSprayChart(activeSprayNo);
+  if(st===0){
+    // ── 타자 ────────────────────────────────────────────────
+    if(bs.length&&batRows.length){
+      const activeSprayNo=S.sprayPlayer!==null?S.sprayPlayer:(myBatSt?Number(myBatSt.no):null);
+      h+='<div class="seclbl">🏏 타자 기본 기록 <span style="font-size:10px;font-weight:400;color:var(--txt2)">— 이름 탭 → '+(isAdmin?'스프레이+세이버 연동':'스프레이 차트'+(myBatSt?' · 대표 자동':''))+'</span></div>'
+        +'<div class="statwrap"><table><thead><tr>'
+        +'<th style="text-align:left;min-width:62px">선수</th>'
+        +'<th class="sth" onclick="showStatInfo(\'PA\')">PA</th><th class="sth" onclick="showStatInfo(\'AB\')">AB</th>'
+        +'<th class="sth" onclick="showStatInfo(\'H\')">H</th><th class="sth" onclick="showStatInfo(\'2B\')">2B</th>'
+        +'<th class="sth" onclick="showStatInfo(\'3B\')">3B</th><th class="sth" onclick="showStatInfo(\'HR\')" style="color:#fca5a5">HR</th>'
+        +'<th class="sth" onclick="showStatInfo(\'RBI\')">RBI</th><th class="sth" onclick="showStatInfo(\'R\')">R</th>'
+        +'<th class="sth" onclick="showStatInfo(\'BB\')">BB</th><th class="sth" onclick="showStatInfo(\'K\')">K</th>'
+        +'<th class="sth" onclick="showStatInfo(\'SB\')">SB</th>'
+        +'</tr></thead><tbody>';
+      batRows.forEach(s=>{
+        const sel=Number(s.no)===activeSprayNo;
+        h+='<tr style="cursor:pointer" onclick="setSprayPlayer('+Number(s.no)+')">'
+          +'<td style="text-align:left;font-weight:700;color:'+(sel?'var(--navy)':'var(--txt)')+';text-decoration:'+(sel?'underline':'none')+'">'+esc(s.name)+(sel?' 📍':'')+'</td>'
+          +'<td>'+s.pa+'</td><td>'+s.ab+'</td><td>'+s.h+'</td><td>'+s.d2+'</td><td>'+s.d3+'</td>'
+          +'<td style="color:var(--red);font-weight:600">'+s.hr+'</td>'
+          +'<td>'+s.rbi+'</td><td>'+s.run+'</td><td>'+s.bb+'</td><td>'+s.so+'</td><td>'+s.sb+'</td></tr>';
+      });
+      h+='</tbody></table></div>';
+      if(activeSprayNo!==null)h+=rSprayChart(activeSprayNo);
 
-    h+='<div class="seclbl" style="display:flex;align-items:center">📊 타자 세이버매트릭스 <span style="font-size:10px;font-weight:400;color:var(--txt2);margin-left:4px">— MLB 기준 색상</span>'+tbtn+'</div>';
-    const sortedBs=saberFocusNo?[...bs].sort((a,b)=>(Number(b.no)===saberFocusNo?1:0)-(Number(a.no)===saberFocusNo?1:0)):bs;
-    if(myNo&&!myBatSt&&!isAdmin){
-      h+=rNoRecMsg(myName,'타자');
-      if(showAll)sortedBs.forEach(function(s){h+=rBatTile(s,saberFocusNo);});
+      h+='<div class="seclbl" style="display:flex;align-items:center">📊 타자 세이버매트릭스 <span style="font-size:10px;font-weight:400;color:var(--txt2);margin-left:4px">— MLB 기준 색상</span>'+tbtn+'</div>';
+      const sortedBs=saberFocusNo?[...bs].sort((a,b)=>(Number(b.no)===saberFocusNo?1:0)-(Number(a.no)===saberFocusNo?1:0)):bs;
+      if(myNo&&!myBatSt&&!isAdmin){
+        h+=rNoRecMsg(myName,'타자');
+        if(showAll)sortedBs.forEach(function(s){h+=rBatTile(s,saberFocusNo);});
+      } else {
+        (showAll?sortedBs:sortedBs.filter(s=>Number(s.no)===saberFocusNo)).forEach(function(s){h+=rBatTile(s,saberFocusNo);});
+      }
     } else {
-      (showAll?sortedBs:sortedBs.filter(s=>Number(s.no)===saberFocusNo)).forEach(function(s){h+=rBatTile(s,saberFocusNo);});
+      h+='<div class="empty" style="padding:32px">'+((!isAdmin&&myNo&&!myBatSt)?rNoRecMsg(myName,'타자'):'타자 기록이 없습니다.')+'</div>';
     }
-  } else if(!isAdmin&&myNo&&!myBatSt){
-    h+=rNoRecMsg(myName,'타자');
-  }
+  } else {
+    // ── 투수 ────────────────────────────────────────────────
+    if(ps.length&&pitRows.length){
+      h+='<div class="seclbl">⚾ 투수 기본 기록</div>'
+        +'<div class="statwrap"><table class="pit"><thead><tr>'
+        +'<th style="text-align:left;min-width:62px">선수</th>'
+        +'<th>G</th><th>IP</th><th>H</th><th>BB</th>'
+        +'<th style="color:#93c5fd">K</th><th style="color:#fca5a5">HR</th><th>ER</th><th>R</th>'
+        +'</tr></thead><tbody>';
+      pitRows.forEach(s=>{
+        h+='<tr><td style="text-align:left;font-weight:700">'+esc(s.name)+'</td>'
+          +'<td>'+s.g+'</td><td>'+s.ipd+'</td><td>'+s.h+'</td><td>'+s.bb+'</td>'
+          +'<td style="color:#1d4ed8;font-weight:600">'+s.k+'</td>'
+          +'<td style="color:var(--red)">'+s.hr+'</td>'
+          +'<td style="color:var(--red);font-weight:600">'+s.er+'</td>'
+          +'<td>'+s.r+'</td></tr>';
+      });
+      h+='</tbody></table></div>';
 
-  // ── 투수 ──────────────────────────────────────────────────
-  if(ps.length&&pitRows.length){
-    h+='<div class="seclbl">⚾ 투수 기본 기록</div>'
-      +'<div class="statwrap"><table class="pit"><thead><tr>'
-      +'<th style="text-align:left;min-width:62px">선수</th>'
-      +'<th>G</th><th>IP</th><th>H</th><th>BB</th>'
-      +'<th style="color:#93c5fd">K</th><th style="color:#fca5a5">HR</th><th>ER</th><th>R</th>'
-      +'</tr></thead><tbody>';
-    pitRows.forEach(s=>{
-      h+='<tr><td style="text-align:left;font-weight:700">'+esc(s.name)+'</td>'
-        +'<td>'+s.g+'</td><td>'+s.ipd+'</td><td>'+s.h+'</td><td>'+s.bb+'</td>'
-        +'<td style="color:#1d4ed8;font-weight:600">'+s.k+'</td>'
-        +'<td style="color:var(--red)">'+s.hr+'</td>'
-        +'<td style="color:var(--red);font-weight:600">'+s.er+'</td>'
-        +'<td>'+s.r+'</td></tr>';
-    });
-    h+='</tbody></table></div>';
-
-    h+='<div class="seclbl" style="display:flex;align-items:center">📈 투수 세이버매트릭스 <span style="font-size:10px;font-weight:400;color:var(--txt2);margin-left:4px">— MLB 기준 색상</span>'+tbtn+'</div>';
-    if(myNo&&!myPitSt&&!isAdmin){
-      h+=rNoRecMsg(myName,'투수');
-      if(showAll)ps.forEach(function(s){h+=rPitTile(s,saberFocusNo);});
+      h+='<div class="seclbl" style="display:flex;align-items:center">📈 투수 세이버매트릭스 <span style="font-size:10px;font-weight:400;color:var(--txt2);margin-left:4px">— MLB 기준 색상</span>'+tbtn+'</div>';
+      if(myNo&&!myPitSt&&!isAdmin){
+        h+=rNoRecMsg(myName,'투수');
+        if(showAll)ps.forEach(function(s){h+=rPitTile(s,saberFocusNo);});
+      } else {
+        (showAll?ps:ps.filter(s=>Number(s.no)===saberFocusNo)).forEach(function(s){h+=rPitTile(s,saberFocusNo);});
+      }
     } else {
-      (showAll?ps:ps.filter(s=>Number(s.no)===saberFocusNo)).forEach(function(s){h+=rPitTile(s,saberFocusNo);});
+      h+='<div class="empty" style="padding:32px">'+((!isAdmin&&myNo&&!myPitSt)?rNoRecMsg(myName,'투수'):'투수 기록이 없습니다.')+'</div>';
     }
-  } else if(!isAdmin&&myNo&&!myPitSt&&ps.length){
-    h+=rNoRecMsg(myName,'투수');
   }
   return h;
 }
