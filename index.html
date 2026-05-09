@@ -1056,6 +1056,13 @@ function rLog(){
       h+='<button onclick="showEditGameModal(\''+selGid+'\')" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:3px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit;flex-shrink:0">✏ 수정</button>';
       h+='<button onclick="delGame(\''+selGid+'\')" style="background:none;border:1px solid #fca5a5;border-radius:var(--r);padding:3px 10px;font-size:11px;color:#dc2626;cursor:pointer;font-family:inherit;flex-shrink:0">🗑 삭제</button>';
       h+='</div>';
+      var _isAddAllowed=(S.role==='admin'||S.role==='recorder'||!S.role);
+      if(_isAddAllowed){
+        h+='<div style="display:flex;gap:8px;margin-top:10px">'
+          +'<button onclick="startAddToGame(\''+selGid+'\',\'bat\')" style="flex:1;background:var(--navy);color:#fff;border:none;border-radius:var(--r);padding:9px 0;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">⚾ 타자 기록 추가</button>'
+          +'<button onclick="startAddToGame(\''+selGid+'\',\'pit\')" style="flex:1;background:var(--red);color:#fff;border:none;border-radius:var(--r);padding:9px 0;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">🎯 투수 기록 추가</button>'
+          +'</div>';
+      }
 
       // 대표 선수 기록
       var _an=activeNo();
@@ -1723,6 +1730,18 @@ function addPitRun(earned){
   save();toast(p.name+' '+(earned?'자책점':'비자책점'),'ok');renderCt();
 }
 function delPitRun(id){S.pit_runs=S.pit_runs.filter(e=>e.id!==id);save();renderCt();}
+function startAddToGame(gid,type){
+  var g=S.games.find(function(x){return x.id===gid;});
+  if(!g){
+    var s=S.blog.find(function(e){return e.gid===gid;})||S.pit_bf.find(function(e){return e.gid===gid;});
+    if(s)g={id:gid,date:s.date||'',opp:s.opp||'?',no:'?',type:'O'};
+  }
+  if(!g){toast('경기를 찾을 수 없습니다','err');return;}
+  S.game=g;
+  if(type==='bat'){S.bs=0;S.batSub=0;S.bp=null;S.bo=null;S.tab=0;}
+  else{S.curPit=null;S.pitSub=0;S.tab=1;}
+  r();
+}
 function del(type,id){
   if(type==='b')S.blog=S.blog.filter(e=>e.id!==id);
   else if(type==='pbf')S.pit_bf=S.pit_bf.filter(e=>e.id!==id);
