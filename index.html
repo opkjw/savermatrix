@@ -269,7 +269,7 @@ let S={
   // 통계
   sprayPlayer:null,statsFilter:'all',statsShowAll:false,
   // 기록
-  logGameId:null,calMonth:null,myPlayer:null,logView:'seq',logExpanded:{},
+  logGameId:null,calMonth:null,myPlayer:null,logView:'player',logExpanded:{},logPitView:'player',pitExpanded:{},
   // 설정
   rosterSub:0,schoolName:"",role:null,setupStep:0,setupDone:false,showPlayerSel:false,activeChild:null,bases:{b1:null,b2:null,b3:null},outs:0,
   // 데이터
@@ -982,6 +982,11 @@ function toggleLogPlayer(pno){
   S.logExpanded[String(pno)]=!S.logExpanded[String(pno)];
   renderCt();
 }
+function togglePitPlayer(pno){
+  if(!S.pitExpanded)S.pitExpanded={};
+  S.pitExpanded[String(pno)]=!S.pitExpanded[String(pno)];
+  renderCt();
+}
 function rLog(){
   // 전체 경기 목록 수집
   const allGames=[...S.games].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
@@ -1043,7 +1048,7 @@ function rLog(){
     var dc=dow===0?'#ef4444':dow===6?'#3b82f6':'var(--txt)';
     var isCurG=g&&S.game&&g.id===S.game.id;
     h+='<div class="cal-cell'+(g?' has-game':'')+(isSel?' selected':'')+'"'
-      +(g?' onclick="var _gid=\''+g.id+'\';S.logGameId=(_gid===S.logGameId?null:_gid);S.calMonth=\''+calMon+'\';S.logExpanded={};renderCt()"':'')+' >';
+      +(g?' onclick="var _gid=\''+g.id+'\';S.logGameId=(_gid===S.logGameId?null:_gid);S.calMonth=\''+calMon+'\';S.logExpanded={};S.pitExpanded={};renderCt()"':'')+' >';
     h+='<span class="cal-day" style="color:'+dc+'">'+(isCurG?'<strong>'+day+'</strong>':day)+'</span>';
     if(g)h+='<span class="cal-dot" style="background:'+(isOff?'var(--navy)':'#16a34a')+'"></span>';
     h+='</div>';
@@ -1233,37 +1238,68 @@ function rLog(){
     }
   }
   if(pbf.length){
-    const pnos=[...new Set(pbf.map(e=>e.pno))];
-    h+='<div class="seclbl">투수 기록 ('+pbf.length+'타자 상대)</div>';
-    pnos.forEach(pno=>{
-      const p=ROSTER.find(x=>x.no===pno)||{name:'#'+pno};
-      const st=calcPitStats(pno,selGid);
-      const pitRuns=pr.filter(e=>e.pno===pno);
-      h+='<div class="logitem" style="background:var(--bg2);flex-direction:column;align-items:stretch;gap:5px">'
-        +'<div style="display:flex;align-items:center;gap:8px">'
-        +'<div class="logbadge" style="background:var(--red);color:#fff;font-size:11px">#'+pno+'</div>'
-        +'<div style="flex:1"><div class="logplayer">'+esc(p.name)+'</div>'
-        +'<div class="logdetail">'+st.ipd+'이닝 · '+st.h+'H · '+st.er+'ER · '+st.bb+'BB · '+st.k+'K</div></div>'
-        +'</div>'
-        +'<div style="padding-left:46px;display:flex;flex-direction:column;gap:4px">';
-      pbf.filter(e=>e.pno===pno).slice().reverse().forEach(e=>{
-        const oc=ocInfo(e.oc);const sy=S.syncedIds.has(e.id);
-        h+='<div style="display:flex;align-items:center;gap:5px">'
-          +'<span style="background:'+oc.bg+';color:'+oc.fg+';padding:2px 7px;border-radius:4px;font-size:11px">'+oc.l+'</span>'
-          +'<span style="font-size:10px;color:'+(sy?'#15803d':'#f59e0b')+'">'+(sy?'✓':'●')+'</span>'
-          +'<button onclick="showEditPitBfModal(\''+e.id+'\')" style="background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:3px 7px;font-size:10px;color:var(--txt2);cursor:pointer;font-family:inherit">✏</button>'
-          +'<button onclick="del(\'pbf\',\''+e.id+'\')" style="background:none;border:none;color:var(--txt2);cursor:pointer;font-size:14px;line-height:1">✕</button>'
+    var pitView=S.logPitView||'player';
+    var pBtnS='border:none;border-radius:var(--r);padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;min-height:36px;';
+    var pBtnOff='background:#e5e7eb;color:#111827;';
+    h+='<div class="seclbl" style="display:flex;align-items:center;gap:6px">'
+      +'<span style="flex:1">투수 기록 ('+pbf.length+'타자 상대)</span>'
+      +'<button onclick="S.logPitView=\'seq\';renderCt()" style="'+pBtnS+(pitView==='seq'?'background:var(--red);color:#fff':pBtnOff)+'">투구순</button>'
+      +'<button onclick="S.logPitView=\'player\';renderCt()" style="'+pBtnS+(pitView==='player'?'background:var(--red);color:#fff':pBtnOff)+'">투수별</button>'
+      +'</div>';
+
+    if(pitView==='seq'){
+      pbf.slice().reverse().forEach(function(e){
+        var oc=ocInfo(e.oc);var sy=S.syncedIds.has(e.id);
+        h+='<div class="logitem">'
+          +'<div class="logbadge" style="background:'+oc.bg+';color:'+oc.fg+';font-size:10px">'+oc.l+'</div>'
+          +'<div style="flex:1;min-width:0">'
+          +'<div class="logplayer">'+esc(e.pn||('#'+e.pno))+' <span style="font-size:10px;color:'+(sy?'#15803d':'#f59e0b')+'">'+(sy?'✓':'●')+'</span></div>'
+          +'</div>'
+          +'<button onclick="showEditPitBfModal(\''+e.id+'\')" style="background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:7px 10px;font-size:12px;color:var(--txt2);cursor:pointer;font-family:inherit;min-height:36px">✏</button>'
+          +'<button onclick="del(\'pbf\',\''+e.id+'\')" style="background:none;border:none;color:var(--txt2);cursor:pointer;font-size:18px;line-height:1;min-height:36px;min-width:36px">✕</button>'
           +'</div>';
       });
-      if(pitRuns.length){
-        h+='<div style="font-size:11px;color:var(--txt2);margin-top:2px">실점: ';
-        pitRuns.forEach(r=>{
-          h+='<span onclick="showEditPitRunModal(\''+r.id+'\')" style="cursor:pointer;text-decoration:underline;margin-right:8px">'+(r.earned?'자책':'비자책')+' ✏</span>';
-        });
+    } else {
+      var pnos=[...new Set(pbf.map(function(e){return e.pno;}))];
+      pnos.forEach(function(pno){
+        var rp=ROSTER.find(function(x){return x.no===pno;})||{name:'#'+pno,no:pno};
+        var st=calcPitStats(pno,selGid);
+        var pitRuns=pr.filter(function(e){return e.pno===pno;});
+        var isPExp=!!(S.pitExpanded&&S.pitExpanded[String(pno)]);
+        h+='<div class="logitem" style="flex-direction:column;align-items:stretch;gap:0;padding:10px 12px">'
+          +'<div onclick="togglePitPlayer('+pno+')" style="display:flex;align-items:center;gap:8px;cursor:pointer">'
+          +'<div class="logbadge" style="background:var(--red);color:#fff;font-size:11px">#'+pno+'</div>'
+          +'<div style="flex:1;min-width:0">'
+          +'<div class="logplayer">'+esc(rp.name)+'</div>'
+          +'<div class="logdetail">'+st.ipd+'이닝 · '+st.h+'H · '+st.er+'ER · '+st.bb+'BB · '+st.k+'K'+(pitRuns.length?' · 실점'+pitRuns.length:'')+'</div>'
+          +'</div>'
+          +'<span style="font-size:14px;color:var(--txt2);flex-shrink:0">'+(isPExp?'▲':'▼')+'</span>'
+          +'</div>';
+        if(isPExp){
+          h+='<div style="padding-top:8px;margin-top:8px;border-top:1px solid var(--bdr);display:flex;flex-direction:column;gap:6px">';
+          pbf.filter(function(e){return e.pno===pno;}).slice().reverse().forEach(function(e){
+            var oc=ocInfo(e.oc);var sy=S.syncedIds.has(e.id);
+            h+='<div style="display:flex;align-items:center;gap:8px">'
+              +'<div class="logbadge" style="background:'+oc.bg+';color:'+oc.fg+';font-size:10px;flex-shrink:0">'+oc.l+'</div>'
+              +'<div style="flex:1;min-width:0">'
+              +'<div class="logdetail" style="font-size:12px"><span style="color:'+(sy?'#15803d':'#f59e0b')+'">'+(sy?'✓':'●')+'</span></div>'
+              +'</div>'
+              +'<button onclick="showEditPitBfModal(\''+e.id+'\')" style="background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:7px 10px;font-size:12px;color:var(--txt2);cursor:pointer;font-family:inherit;flex-shrink:0;min-height:36px">✏</button>'
+              +'<button onclick="del(\'pbf\',\''+e.id+'\')" style="background:none;border:none;color:var(--txt2);cursor:pointer;font-size:18px;line-height:1;flex-shrink:0;min-height:36px;min-width:36px">✕</button>'
+              +'</div>';
+          });
+          if(pitRuns.length){
+            h+='<div style="font-size:12px;color:var(--txt2);padding-top:4px;border-top:1px solid var(--bdr)">실점: ';
+            pitRuns.forEach(function(r){
+              h+='<span onclick="showEditPitRunModal(\''+r.id+'\')" style="cursor:pointer;text-decoration:underline;margin-right:8px">'+(r.earned?'자책':'비자책')+' ✏</span>';
+            });
+            h+='</div>';
+          }
+          h+='</div>';
+        }
         h+='</div>';
-      }
-      h+='</div></div>';
-    });
+      });
+    }
   }
   return h;
 }
