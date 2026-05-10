@@ -10,7 +10,7 @@
 <title>⚾ 우리아이 야구 기록 Ball Matrix</title>
 <!-- version: 2026-05-10 -->
 <style>
-:root{--navy:#1B3A6B;--red:#922B21;--bg:#f9fafb;--card:#ffffff;--bg2:#f3f4f6;--txt:#111827;--txt2:#5a6370;--bdr:#e5e7eb;--bdr2:#d1d5db;--r:8px;--rl:12px;--sfb:env(safe-area-inset-bottom,0px);}
+:root{--navy:#1B3A6B;--red:#922B21;--bg:#f9fafb;--card:#ffffff;--bg2:#f3f4f6;--txt:#111827;--txt2:#4b5563;--bdr:#e5e7eb;--bdr2:#d1d5db;--r:8px;--rl:12px;--sfb:env(safe-area-inset-bottom,0px);}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;overflow:hidden;background:#000}
 body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans KR',sans-serif}
@@ -22,7 +22,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans KR'
 .gh-title{font-size:15px;font-weight:600}.gh-sub{font-size:11px;opacity:.72;margin-top:2px}
 .gh-right{display:flex;align-items:center;gap:6px}
 .gh-btn{background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 10px;border-radius:var(--r);font-size:12px;cursor:pointer;font-family:inherit;min-height:44px}
-.gh-icon{background:none;border:none;color:rgba(255,255,255,.75);font-size:20px;cursor:pointer;padding:10px;line-height:1;position:relative;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center}
+.gh-icon{background:none;border:none;color:rgba(255,255,255,.88);font-size:20px;cursor:pointer;padding:10px;line-height:1;position:relative;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center}
 .pdot{position:absolute;top:1px;right:1px;width:7px;height:7px;border-radius:50%;background:#f59e0b;border:1.5px solid var(--navy)}
 .tabbar{display:flex;background:var(--card);border-top:1px solid var(--bdr);flex-shrink:0;padding-bottom:var(--sfb)}
 .tab{flex:1;padding:8px 2px 10px;text-align:center;border:none;background:none;cursor:pointer;font-size:12px;color:var(--txt2);line-height:1.3;font-family:inherit;min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center}
@@ -38,7 +38,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans KR'
 .pcard-l{display:flex;align-items:center;gap:10px}
 .pav{width:38px;height:38px;border-radius:50%;background:var(--red);color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .pcard-name{font-size:15px;font-weight:600;color:var(--txt)}.pcard-role{font-size:11px;color:var(--txt2);margin-top:1px}
-.pchg{background:none;border:1px solid var(--bdr2);border-radius:var(--r);padding:5px 10px;font-size:12px;color:var(--txt2);cursor:pointer;font-family:inherit;min-height:44px;display:flex;align-items:center;justify-content:center}
+.pchg{background:none;border:1px solid var(--bdr2);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--txt2);cursor:pointer;font-family:inherit;min-height:44px;display:flex;align-items:center;justify-content:center}
 .pstats{display:flex}
 .pstat{flex:1;text-align:center;padding:0 4px}
 .pstat:not(:last-child){border-right:1px solid var(--bdr)}
@@ -132,7 +132,7 @@ tr:nth-child(even) td{background:var(--bg2)}
 .mlbl{font-size:12px;color:var(--txt2);margin-bottom:5px;font-weight:500}
 .mbtns{display:flex;gap:8px;margin-top:6px}
 .mcancel{flex:1;padding:13px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--bg2);color:var(--txt2);cursor:pointer;font-size:15px;font-family:inherit}
-.mok{flex:2;padding:13px;border:none;border-radius:var(--r);background:var(--navy);color:#fff;cursor:pointer;font-size:15px;font-weight:600;font-family:inherit}
+.mok{flex:2;padding:14px;border:none;border-radius:var(--r);background:var(--navy);color:#fff;cursor:pointer;font-size:15px;font-weight:600;font-family:inherit}
 .em-lbl{font-size:11px;font-weight:600;color:var(--txt2);margin:10px 0 6px}
 .em-ocgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:4px}
 .em-ocbtn{border:none;border-radius:var(--r);cursor:pointer;font-size:11px;font-weight:500;padding:9px 3px;min-height:44px;line-height:1.2;width:100%;font-family:inherit;transition:opacity .15s}
@@ -144,7 +144,7 @@ tr:nth-child(even) td{background:var(--bg2)}
 .em-card-btn{width:44px;height:44px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--card);cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center;font-family:inherit}
 .em-btns{display:flex;gap:8px;margin-top:14px}
 .em-cancel{flex:1;padding:12px;border:1px solid var(--bdr);border-radius:var(--r);background:var(--bg2);color:var(--txt2);cursor:pointer;font-size:14px;font-family:inherit}
-.em-save{flex:2;padding:12px;border:none;border-radius:var(--r);background:var(--navy);color:#fff;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit}
+.em-save{flex:2;padding:13px;border:none;border-radius:var(--r);background:var(--navy);color:#fff;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit}
 .em-zone-of{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:4px}
 .em-zone-if{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
 .em-zbtn{padding:8px 2px;border-radius:var(--r);font-size:11px;cursor:pointer;font-family:inherit;border:1px solid var(--bdr);background:var(--bg2);color:var(--txt2)}
@@ -161,7 +161,7 @@ tr:nth-child(even) td{background:var(--bg2)}
 .su-desc{font-size:14px;color:rgba(255,255,255,.65);line-height:1.75;margin-bottom:28px;animation:suUp .35s ease-out .05s both}
 @keyframes suUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 .su-field{width:100%;text-align:left;margin-bottom:10px}
-.su-lbl{font-size:11px;font-weight:600;color:rgba(255,255,255,.7);letter-spacing:.06em;text-transform:uppercase;margin-bottom:7px}
+.su-lbl{font-size:11px;font-weight:600;color:rgba(255,255,255,.85);letter-spacing:.06em;text-transform:uppercase;margin-bottom:7px}
 .su-input{width:100%;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.36);border-radius:13px;padding:16px 17px;font-size:16px;color:#fff;outline:none;font-family:inherit;-webkit-appearance:none;transition:border-color .2s,background .2s}
 .su-input:focus{border-color:rgba(255,255,255,.55);background:rgba(255,255,255,.16)}
 .su-input::placeholder{color:rgba(255,255,255,.5)}
