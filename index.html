@@ -1984,11 +1984,16 @@ function pitSelOC(id){
   if(!S.game){toast('경기를 먼저 시작해주세요','err');return;}
   const p=ROSTER.find(x=>x.no===S.curPit);
   S.pit_bf.push({id:UID(),gid:S.game.id,date:S.game.date,opp:S.game.opp,pno:p.no,pn:p.name,oc:id});
+  var prevRuns=S.pit_runs.length;
   applyPitBaseAdv(id);
   save();
+  var newRuns=S.pit_runs.length-prevRuns;
   const st=calcPitStats(S.curPit,S.game.id);
-  toast(p.name+' '+ocInfo(id).l+' · '+st.ipd+'이닝 '+st.k+'K','ok');
-  renderCt();
+  var msg=p.name+' '+ocInfo(id).l+' · '+st.ipd+'이닝 '+st.k+'K';
+  if(newRuns>0){var ne=S.pit_runs.slice(-newRuns);var erC=ne.filter(function(r){return r.earned;}).length;var uerC=newRuns-erC;msg+=' · '+newRuns+'실점'+(erC?' 자책'+erC:'')+(uerC?' 비자책'+uerC:'');}
+  toast(msg,newRuns>0?'err':'ok');
+  if(S.pitOuts>=3)toast('3아웃 — 이닝 종료 버튼을 눌러주세요','ok');
+  renderGHdr();renderCt();
 }
 function applyPitBaseAdv(oc){
   if(!S.game)return;
@@ -2044,10 +2049,9 @@ function applyPitBaseAdv(oc){
       scored.forEach(function(r){S.pit_runs.push({id:UID(),gid:S.game.id,pno:pp.no,pn:pp.name,earned:r.earned});});
       var erC=scored.filter(function(r){return r.earned;}).length;
       var uerC=scored.length-erC;
-      toast(scored.length+'실점'+(erC?' 자책'+erC:'')+(uerC?' 비자책'+uerC:''),'err');
     }
   }
-  if(S.pitOuts>=3){S.pitOuts=3;toast('3아웃 — 이닝 종료 버튼을 눌러주세요','ok');}
+  if(S.pitOuts>=3)S.pitOuts=3;
 }
 function rPitBaseDiagram(){
   if(!S.game)return'';
