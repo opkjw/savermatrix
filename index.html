@@ -2086,7 +2086,10 @@ function rPitBaseDiagram(){
   h+='<div>'+pitSlot('b2','2루')+'</div>';
   h+='<div style="display:flex;gap:16px;width:100%;justify-content:space-between">'+pitSlot('b3','3루')+pitSlot('b1','1루')+'</div>';
   h+='</div>';
-  h+='<button onclick="pitEndInning()" style="width:100%;margin-top:10px;background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:var(--r);padding:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">이닝 종료 (베이스 초기화)</button>';
+  h+='<div style="display:flex;gap:6px;margin-top:10px">'
+    +'<button onclick="pitEndInning()" style="flex:1;background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:var(--r);padding:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">이닝 종료</button>'
+    +'<button onclick="startPitTiebreaker()" style="flex:1;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:var(--r);padding:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">⚡ 승부치기</button>'
+    +'</div>';
   return h+'</div>';
 }
 function pitRunnerScore(base){
@@ -2188,7 +2191,10 @@ function rBaseDiagram(){
   h+='<div>'+baseSlot('b2','2루')+'</div>';
   h+='<div style="display:flex;gap:16px;width:100%;justify-content:space-between">'+baseSlot('b3','3루')+baseSlot('b1','1루')+'</div>';
   h+='</div>';
-  h+='<button onclick="endInning()" style="width:100%;margin-top:10px;background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:var(--r);padding:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">이닝 종료 (베이스 초기화)</button>';
+  h+='<div style="display:flex;gap:6px;margin-top:10px">'
+    +'<button onclick="endInning()" style="flex:1;background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:var(--r);padding:7px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">이닝 종료</button>'
+    +'<button onclick="showTiebreakerModal()" style="flex:1;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:var(--r);padding:7px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">⚡ 승부치기</button>'
+    +'</div>';
   return h+'</div>';
 }
 function scoreRunnerBase(pno){
@@ -2312,6 +2318,44 @@ function removeFromBase(base){
 }
 function endInning(){
   S.bases={b1:null,b2:null,b3:null};S.outs=0;save();renderCt();toast('이닝 종료','ok');
+}
+function showTiebreakerModal(){
+  S._tb2=null;S._tb1=null;
+  renderTiebreakerModal();
+}
+function renderTiebreakerModal(){
+  var batters=ROSTER.filter(function(p){return p.r==='b';});
+  var ok=S._tb2&&S._tb1&&S._tb2!==S._tb1;
+  function pBtn(key,pno_sel){
+    return batters.map(function(p){
+      var sel=pno_sel===p.no;
+      return '<button onclick="S._tb'+key+'='+(sel?'null':p.no)+';renderTiebreakerModal()" style="display:flex;align-items:center;gap:5px;padding:6px 10px;border:'+(sel?'2px solid var(--navy)':'1px solid var(--bdr)')+';border-radius:var(--r);background:'+(sel?'#EBF0FB':'var(--card)')+';cursor:pointer;font-family:inherit;font-size:12px;color:'+(sel?'var(--navy)':'var(--txt)')+';font-weight:'+(sel?'700':'400')+'"><span style="width:20px;height:20px;border-radius:50%;background:'+(sel?'var(--navy)':'#d1d5db')+';color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+p.no+'</span>'+esc(p.name)+'</button>';
+    }).join('');
+  }
+  document.getElementById('modal-root').innerHTML=
+    '<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">'
+    +'<h3>⚡ 승부치기 배치</h3>'
+    +'<div style="font-size:12px;color:var(--txt2);margin-bottom:16px;text-align:center">무사 1·2루 주자를 선택하세요</div>'
+    +'<div class="mlbl">2루 주자</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">'+pBtn(2,S._tb2)+'</div>'
+    +'<div class="mlbl">1루 주자</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">'+pBtn(1,S._tb1)+'</div>'
+    +'<div class="mbtns"><button class="mcancel" onclick="closeModal()">취소</button>'
+    +'<button class="mok"'+(ok?'':' disabled style="opacity:.4;cursor:not-allowed"')+' onclick="confirmTiebreaker()">배치</button>'
+    +'</div></div></div>';
+}
+function confirmTiebreaker(){
+  if(!S._tb2||!S._tb1||S._tb2===S._tb1)return;
+  S.bases={b1:S._tb1,b2:S._tb2,b3:null};
+  S.outs=0;
+  S._tb2=null;S._tb1=null;
+  save();closeModal();renderCt();toast('승부치기: 무사 1·2루 배치','ok');
+}
+function startPitTiebreaker(){
+  if(!S.pitBases)S.pitBases={b1:null,b2:null,b3:null};
+  S.pitBases={b1:{earned:false},b2:{earned:false},b3:null};
+  S.pitOuts=0;
+  save();renderCt();toast('승부치기: 무사 1·2루 배치','ok');
 }
 function startAddToGame(gid,type){
   var g=S.games.find(function(x){return x.id===gid;});
