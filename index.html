@@ -1923,6 +1923,9 @@ function undoRunnerAdv(){
 function confirmRunnerAdv(pno,scored){
   if(scored){
     scoreRunnerBase(pno);
+    var sc=S.game?gameScore(S.game.id):{our:0,opp:0};
+    var runner=ROSTER.find(function(x){return Number(x.no)===Number(pno);});
+    toast((runner?runner.name:'주자')+' 득점! '+sc.our+' : '+sc.opp,'ok');
     S.runnerDecisions[pno]='scored';
     S.brbi++;
   }else{
@@ -2244,12 +2247,10 @@ function advanceBase(base){
   var pno=S.bases[base];if(pno==null)return;
   var p=ROSTER.find(function(x){return Number(x.no)===Number(pno);});
   if(base==='b3'){
-    var before=gameScore(S.game?S.game.id:null).our;
     scoreRunnerBase(pno);
-    var after=gameScore(S.game?S.game.id:null).our;
-    console.log('[홈인] pno='+pno+' game='+JSON.stringify(S.game&&S.game.id)+' tab='+S.tab+' score:'+before+'→'+after+' blog.runs='+JSON.stringify(S.blog.filter(function(e){return S.game&&e.gid===S.game.id;}).map(function(e){return{pno:e.pno,run:e.run,oc:e.oc};})));
+    var sc=S.game?gameScore(S.game.id):{our:0,opp:0};
     S.bases.b3=null;
-    save();renderGHdr();renderCt();toast((p?p.name:'선수')+' 홈인!','ok');
+    save();renderGHdr();renderCt();toast((p?p.name:'선수')+' 홈인! '+sc.our+' : '+sc.opp,'ok');
   }else if(base==='b2'){
     S.bases.b3=pno;S.bases.b2=null;
     save();renderCt();toast((p?p.name:'선수')+' 3루 진루','ok');
