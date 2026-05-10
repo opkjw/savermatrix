@@ -337,6 +337,14 @@ function doGet(e) {
       return out({ status: 'ok', accepted: roster.length, skipped: rosterSkipped });
     }
 
+    // 경기 목록만 빠르게 불러오기 (게임 시작 시 중복 검사용)
+    if (action === 'fetchGames') {
+      return out({
+        status:   'ok',
+        games:    readAll(SHEETS.games)
+      });
+    }
+
     // 전체 데이터 불러오기
     if (action === 'fetch') {
       return out({

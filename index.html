@@ -258,7 +258,7 @@ const OC_OUT=[
 ];
 const ALL_OC=[...OC_HIT,...OC_OB,...OC_OUT];
 const BIP_OC=["1B","2B","3B","HR","GO","FO","DP","SF","FC","E"];
-const UID=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+const UID=()=>(self.crypto&&self.crypto.randomUUID)?self.crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2,11);
 
 function ocOuts(o){if(o==='DP')return 2;if(['K','GO','FO','SF','SH','FC'].includes(o))return 1;return 0;}
 function ocInfo(id){return ALL_OC.find(x=>x.id===id)||{l:id,bg:"#e5e7eb",fg:"#374151"};}
@@ -2740,9 +2740,17 @@ function showGameModal(){
   const tbBase='flex:1;padding:9px 0;border-radius:var(--r);border:1px solid var(--bdr);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .15s,color .15s';
   const tbOn=tbBase+';background:var(--navy);color:#fff;border-color:var(--navy)';
   const tbOff=tbBase+';background:var(--card);color:var(--txt2)';
+  const isNewGame=!S.game;
+  const canFetch=isNewGame&&S.scriptUrl&&navigator.onLine;
+  const noticeHtml=isNewGame
+    ?(canFetch
+        ?'<div id="m-sync-notice" style="font-size:11px;color:var(--txt2);margin-bottom:10px;padding:6px 10px;background:var(--bg2);border-radius:6px">⏳ 다른 단말의 경기 목록 확인 중...</div>'
+        :(S.scriptUrl?'<div style="font-size:11px;color:#92400e;margin-bottom:10px;padding:6px 10px;background:#fef3c7;border-radius:6px">⚠ 오프라인 — 로컬 데이터만 검사됩니다</div>':''))
+    :'';
   document.getElementById('modal-root').innerHTML=
     '<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">'
     +'<h3>'+(S.game?'경기 변경':'경기 시작')+'</h3>'
+    +noticeHtml
     +'<div class="mlbl">경기 날짜</div><input type="date" id="m-date" value="'+curDate+'">'
     +'<div class="mlbl">상대팀</div><input type="text" id="m-opp" placeholder="상대팀 이름" maxlength="20" value="'+curOpp+'">'
     +'<div class="mlbl">경기 종류</div>'
@@ -2754,6 +2762,14 @@ function showGameModal(){
     +'<div class="mbtns"><button class="mcancel" onclick="closeModal()">취소</button>'
     +'<button class="mok" onclick="confirmGame()">'+(S.game?'변경':'경기 시작')+'</button></div></div></div>';
   setTimeout(()=>document.getElementById('m-opp').focus(),100);
+  if(canFetch){
+    fetchGamesOnly().then(function(res){
+      const n=document.getElementById('m-sync-notice');
+      if(!n)return;
+      if(res.ok)n.outerHTML='<div style="font-size:11px;color:#15803d;margin-bottom:10px;padding:6px 10px;background:#dcfce7;border-radius:6px">✓ 경기 목록 최신화 완료'+(res.added>0?' ('+res.added+'건 신규)':'')+'</div>';
+      else n.outerHTML='<div style="font-size:11px;color:#92400e;margin-bottom:10px;padding:6px 10px;background:#fef3c7;border-radius:6px">⚠ 서버 확인 실패 — 로컬 데이터만 검사됩니다</div>';
+    });
+  }
 }
 function setGameType(t){
   const base='flex:1;padding:9px 0;border-radius:var(--r);border:1px solid var(--bdr);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit';
@@ -2771,22 +2787,24 @@ function confirmGame(){
   const o=document.getElementById('m-opp').value.trim();
   const t=document.getElementById('m-gtype').value||'O';
   if(!d||!o){toast('날짜와 상대팀을 입력해주세요','err');return;}
-  const dup=S.games.find(function(g){return g.date===d&&g.opp===o&&(!S.game||g.id!==S.game.id);});
+  const dup=S.games.find(function(g){return g.date===d&&g.opp===o&&(g.type||'O')===t&&(!S.game||g.id!==S.game.id);});
   if(dup){
     const bCnt=S.blog.filter(function(e){return e.gid===dup.id;}).length;
     const pCnt=S.pit_bf.filter(function(e){return e.gid===dup.id;}).length;
+    const recBy=dup.recordedBy||'admin';
+    const recLbl=recBy==='admin'?'👨‍💼 감독/코치':recBy==='recorder'?'📋 기록자':'👨‍👩‍👦 학부모';
+    const typLbl=t==='P'?'연습경기':'정식경기';
     _pendingGame={d:d,o:o,t:t};
     document.getElementById('modal-root').innerHTML=
       '<div class="modal-bg"><div class="modal">'
-      +'<h3>⚠ 중복 경기 감지</h3>'
+      +'<h3>⚠ 같은 경기가 이미 있어요</h3>'
       +'<div style="font-size:14px;color:var(--txt);line-height:1.7;margin-bottom:14px">'
-      +'같은 날짜와 상대팀의 경기가 이미 있습니다.<br>'
-      +'<strong>'+esc(d)+' vs '+esc(o)+'</strong><br>'
-      +'<span style="font-size:12px;color:var(--txt2)">타자 '+bCnt+'건 · 투수 '+pCnt+'건 기록됨</span>'
+      +'<strong>'+esc(d)+' '+typLbl+' vs '+esc(o)+'</strong><br>'
+      +'<span style="font-size:12px;color:var(--txt2)">'+recLbl+'이(가) 시작 · 타자 '+bCnt+'건 · 투수 '+pCnt+'건</span>'
       +'</div>'
-      +'<div class="mbtns">'
-      +'<button class="mcancel" onclick="resumeExistingGame(\''+dup.id+'\')" style="flex:1;background:#EBF0FB;color:var(--navy);border-color:#93c5fd">이어서 입력</button>'
-      +'<button class="mok" onclick="forceCreateGame()" style="flex:1">새로 생성</button>'
+      +'<div class="mbtns" style="flex-direction:column;gap:8px">'
+      +'<button class="mok" onclick="resumeExistingGame(\''+dup.id+'\')" style="background:var(--navy);color:#fff">기존 경기에 합류</button>'
+      +'<button class="mcancel" onclick="forceCreateGame()" style="background:var(--card);color:var(--txt2)">새로 생성 (더블헤더 등)</button>'
       +'</div></div></div>';
     return;
   }
@@ -2796,6 +2814,7 @@ function doCreateGame(d,o,t){
   S.game={id:UID(),no:S.gcnt++,date:d,opp:o,type:t,recordedBy:S.role||'admin'};
   S.games.push({...S.game});
   S.curPit=null;S.bases={b1:null,b2:null,b3:null};S.outs=0;save();closeModal();r();toast('vs '+o+' '+(t==='P'?'연습':'정식')+'경기 시작!');
+  if(S.scriptUrl&&navigator.onLine){pushGamesOnly().then(function(res){if(res.ok&&res.pushed)console.log('game auto-pushed');});}
 }
 function resumeExistingGame(gid){
   const g=S.games.find(function(x){return x.id===gid;});
@@ -2831,6 +2850,40 @@ async function testConn(){
     else if(data.message&&data.message.includes('인증')){st.textContent='✗ 인증 실패 - 토큰 확인';st.style.color='#991b1b';}
     else{st.textContent='⚠ 응답 오류';st.style.color='#b45309';}
   }catch(e){st.textContent='✗ 연결 실패 - URL 확인';st.style.color='#991b1b';}
+}
+async function fetchGamesOnly(){
+  if(!S.scriptUrl||!navigator.onLine)return{ok:false,reason:'offline'};
+  try{
+    const res=await fetch(S.scriptUrl+'?action=fetchGames'+(S.scriptToken?'&token='+encodeURIComponent(S.scriptToken):''));
+    const data=await res.json();
+    if(data.status!=='ok')return{ok:false,reason:data.message||'서버 오류'};
+    const localIds=new Set(S.games.map(function(g){return g.id;}));
+    const localDel=new Set(S.deletedGids||[]);
+    var added=0;
+    (data.games||[]).forEach(function(g){
+      if(!localIds.has(g.id)&&!localDel.has(g.id)){
+        S.games.push(g);
+        S.syncedIds.add('g_'+g.id);
+        added++;
+      }
+    });
+    if(added)save();
+    return{ok:true,added:added};
+  }catch(e){console.error('fetchGamesOnly',e);return{ok:false,reason:e.message};}
+}
+async function pushGamesOnly(){
+  if(!S.scriptUrl||!navigator.onLine)return{ok:false,reason:'offline'};
+  const gP=S.games.filter(function(g){return !S.syncedIds.has('g_'+g.id);});
+  if(!gP.length)return{ok:true,pushed:0};
+  try{
+    const res=await fetch(S.scriptUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},
+      body:JSON.stringify({type:'sync',token:S.scriptToken||'',games:gP,bat_log:[],pit_bf:[],pit_runs:[]})});
+    const data=await res.json();
+    if(data.status!=='ok')return{ok:false,reason:data.message||'서버 오류'};
+    gP.forEach(function(g){S.syncedIds.add('g_'+g.id);});
+    save();
+    return{ok:true,pushed:gP.length};
+  }catch(e){console.error('pushGamesOnly',e);return{ok:false,reason:e.message};}
 }
 async function doSync(){
   if(!S.scriptUrl||S.syncing)return;
