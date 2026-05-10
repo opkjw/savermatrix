@@ -2252,8 +2252,12 @@ function applyBaseAdvancement(oc,pno){
     else{S.bases={b1:pno,b2:b.b2,b3:b.b3};}
     toast('추가 진루는 베이스 현황에서 이동하세요','');
   }else if(oc==='FC'){
-    S.outs=(S.outs||0)+1;S.bases={b1:pno,b2:b.b2,b3:b.b3};
-    if(b.b1!=null)toast('야수선택: 아웃된 주자를 제거해주세요','');
+    S.outs=(S.outs||0)+1;
+    if(b.b1!=null&&b.b2!=null&&b.b3!=null){scoreRunnerBase(b.b3);S.bases={b1:pno,b2:b.b1,b3:b.b2};}
+    else if(b.b1!=null&&b.b2!=null){S.bases={b1:pno,b2:b.b1,b3:b.b2};}
+    else if(b.b1!=null){S.bases={b1:pno,b2:b.b1,b3:b.b3};}
+    else{S.bases={b1:pno,b2:b.b2,b3:b.b3};}
+    toast('아웃된 주자를 베이스 현황에서 제거해주세요','');
   }else if(oc==='K'||oc==='GO'||oc==='FO'){
     S.outs=(S.outs||0)+1;
   }else if(oc==='DP'){
