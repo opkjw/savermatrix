@@ -259,6 +259,7 @@ const OC_OUT=[
 const ALL_OC=[...OC_HIT,...OC_OB,...OC_OUT];
 const BIP_OC=["1B","2B","3B","HR","GO","FO","DP","SF","FC","E"];
 const UID=()=>(self.crypto&&self.crypto.randomUUID)?self.crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2,11);
+const DEVICE_ID=(function(){let id=localStorage.getItem('bsbl_did');if(!id){id=UID();localStorage.setItem('bsbl_did',id);}return id;})();
 
 function ocOuts(o){if(o==='DP')return 2;if(['K','GO','FO','SF','SH','FC'].includes(o))return 1;return 0;}
 function ocInfo(id){return ALL_OC.find(x=>x.id===id)||{l:id,bg:"#e5e7eb",fg:"#374151"};}
@@ -1883,11 +1884,30 @@ function rRosterList(){
 }
 
 // ── 이벤트 핸들러 ─────────────────────────────────────────
+var _lockTimer=null;
+function _postLock(action,gid){
+  if(!S.scriptUrl||!gid)return;
+  fetch(S.scriptUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},
+    body:JSON.stringify({type:'lock',action:action,gid:gid,deviceId:DEVICE_ID,token:S.scriptToken||''})})
+    .catch(function(){});
+}
+function lockGame(gid){
+  if(!gid)return;
+  _postLock('acquire',gid);
+  clearInterval(_lockTimer);
+  _lockTimer=setInterval(function(){_postLock('refresh',gid);},3*60*1000);
+}
+function unlockGame(gid){
+  clearInterval(_lockTimer);_lockTimer=null;
+  _postLock('release',gid);
+}
 function endGame(){
   if(!S.game)return;
   if(!confirm('vs '+S.game.opp+' 경기를 종료하시겠습니까?'))return;
+  var gid=S.game.id;
   S.game=null;S.curPit=null;S.bs=0;S.batSub=0;S.ps=0;
   save();r();toast('경기 종료');
+  unlockGame(gid);
 }
 function selBat(no){S.bp=no;S.bs=1;r();}
 function rRunConfirm(){
@@ -2370,32 +2390,16 @@ function del(type,id){
   else if(type==='pbf')S.pit_bf=S.pit_bf.filter(e=>e.id!==id);
   S.syncedIds.delete(id);save();renderCt();
 }
-function showDeletedGameModal(label){
-  return new Promise(function(resolve){
-    window._delGameResolve=resolve;
-    const mr=document.getElementById('modal-root');
-    mr.innerHTML='<div class="modal-bg"></div>'
-      +'<div class="modal-box" style="max-width:320px">'
-      +'<div style="font-weight:700;font-size:15px;margin-bottom:10px">⚠ 기록 중인 경기 삭제됨</div>'
-      +'<p style="font-size:13px;color:#374151;margin:0 0 14px">현재 기록 중인 <b>'+label+'</b> 경기가<br>다른 기기에서 삭제됐습니다.</p>'
-      +'<div style="display:flex;flex-direction:column;gap:8px">'
-      +'<button style="background:#dc2626;color:#fff;border:none;padding:10px;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit" '
-      +'onclick="document.getElementById(&apos;modal-root&apos;).innerHTML=&apos;&apos;;window._delGameResolve(&apos;discard&apos;)">경기 종료 (삭제 확정)</button>'
-      +'<button style="background:#f3f4f6;color:#374151;border:1px solid #d1d5db;padding:10px;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit" '
-      +'onclick="document.getElementById(&apos;modal-root&apos;).innerHTML=&apos;&apos;;window._delGameResolve(&apos;keep&apos;)">이 기기에만 보존</button>'
-      +'</div></div>';
-  });
-}
+
 function delGame(gid){
   const g=S.games.find(x=>x.id===gid);
   if(!g)return;
+  if(S.game&&S.game.id===gid){alert('경기가 진행 중입니다. 먼저 ■ 종료 버튼으로 경기를 끝내주세요.');return;}
   const bCnt=S.blog.filter(e=>e.gid===gid).length;
   const pCnt=S.pit_bf.filter(e=>e.gid===gid).length;
   const label='vs '+(g.opp||'?')+(g.date?' ('+g.date+')':'');
   var msg='경기를 삭제하시겠습니까?\n\n'+label;
-  if(bCnt||pCnt)msg+='\n\n타자 기록 '+bCnt+'건, 투수 기록 '+pCnt+'건도 함께 삭제됩니다.';
-  if(S.game&&S.game.id===gid)msg+='\n\n⚠ 현재 이 기기에서 기록 중인 경기입니다!';
-  else if(bCnt||pCnt)msg+='\n\n⚠ 다른 기기에서 기록 중일 수 있습니다.';
+  if(bCnt||pCnt)msg+='\n\n타자 기록 '+bCnt+'건, 투수 기록 '+pCnt+'건도 함께 삭제됩니다.\n\n⚠ 다른 기기에서 기록 중일 수 있습니다.';
   if(!confirm(msg))return;
   S.games=S.games.filter(x=>x.id!==gid);
   S.blog=S.blog.filter(e=>e.gid!==gid);
@@ -2900,12 +2904,16 @@ function doCreateGame(d,o,t){
   S.game={id:UID(),no:S.gcnt++,date:d,opp:o,type:t,recordedBy:S.role||'admin'};
   S.games.push({...S.game});
   S.curPit=null;S.bases={b1:null,b2:null,b3:null};S.outs=0;save();closeModal();r();toast('vs '+o+' '+(t==='P'?'연습':'정식')+'경기 시작!');
-  if(S.scriptUrl&&navigator.onLine){pushGamesOnly().then(function(res){if(res.ok&&res.pushed)console.log('game auto-pushed');});}
+  if(S.scriptUrl&&navigator.onLine){
+    pushGamesOnly().then(function(res){if(res.ok&&res.pushed)console.log('game auto-pushed');});
+    lockGame(S.game.id);
+  }
 }
 function resumeExistingGame(gid){
   const g=S.games.find(function(x){return x.id===gid;});
   if(!g)return;
   S.game={...g};S.curPit=null;save();closeModal();r();toast('기존 경기 이어서 입력합니다','ok');
+  if(S.scriptUrl&&navigator.onLine)lockGame(gid);
 }
 function forceCreateGame(){
   if(!_pendingGame)return;
@@ -2945,10 +2953,8 @@ async function fetchGamesOnly(){
     if(data.status!=='ok')return{ok:false,reason:data.message||'서버 오류'};
     const tombF=new Set(data.tombstone_gids||[]);
     if(tombF.size&&S.game&&tombF.has(S.game.id)){
-      const _g=S.game;
-      const _label='vs '+(_g.opp||'?')+(_g.date?' ('+_g.date+')':'');
-      const _choice=await showDeletedGameModal(_label);
-      if(_choice==='keep')tombF.delete(S.game.id);
+      tombF.delete(S.game.id);
+      toast('⚠ 이 경기가 다른 기기에서 삭제됐지만 진행 중이므로 유지됩니다','err');
     }
     // tombstone 적용: 로컬의 삭제된 경기 데이터 정리
     var tombApplied=0;
@@ -3004,13 +3010,11 @@ async function doSync(){
         body:JSON.stringify({type:'sync',token:S.scriptToken||'',games:gP,bat_log:bP,pit_bf:pfP,pit_runs:prP,deleted_gids:dG})});
       const data=await res.json();
       if(data.status!=='ok')throw new Error(data.message||'서버 오류');
-      // tombstone 적용: 서버에서 삭제된 경기의 로컬 데이터 정리
+      // tombstone 적용: 진행 중인 경기는 자동 제외 후 나머지만 삭제
       const tomb=new Set(data.tombstone_gids||[]);
       if(tomb.size&&S.game&&tomb.has(S.game.id)){
-        const _g=S.game;
-        const _label='vs '+(_g.opp||'?')+(_g.date?' ('+_g.date+')':'');
-        const _choice=await showDeletedGameModal(_label);
-        if(_choice==='keep')tomb.delete(S.game.id);
+        tomb.delete(S.game.id);
+        toast('⚠ 이 경기가 다른 기기에서 삭제됐지만 진행 중이므로 유지됩니다','err');
       }
       if(tomb.size){
         S.games=S.games.filter(g=>!tomb.has(g.id));
@@ -3019,11 +3023,15 @@ async function doSync(){
         S.pit_runs=S.pit_runs.filter(e=>!tomb.has(e.gid));
         S.deletedGids=(S.deletedGids||[]).filter(gid=>!tomb.has(gid));
       }
+      // 서버에서 락으로 삭제 거부된 gid는 deletedGids에 유지 (경기 종료 후 재시도)
+      const lockedSet=new Set(data.locked_gids||[]);
+      if(lockedSet.size){toast('⚠ 진행 중인 경기('+lockedSet.size+'건)는 서버에서 삭제가 거부됐습니다','err');}
       bP.forEach(e=>S.syncedIds.add(e.id));
       pfP.forEach(e=>S.syncedIds.add(e.id));
       prP.forEach(e=>S.syncedIds.add(e.id));
       gP.forEach(g=>S.syncedIds.add('g_'+g.id));
-      S.deletedGids=[];
+      // 락으로 거부된 gid는 삭제 대기열에 유지, 나머지는 제거
+      S.deletedGids=(S.deletedGids||[]).filter(gid=>lockedSet.has(gid));
     }
     if(S.rosterDirty){
       const rp=encodeURIComponent(JSON.stringify(ROSTER));
@@ -3059,10 +3067,8 @@ async function loadFromSheets(){
     const svrPitRunIds=new Set((data.pit_runs||[]).map(e=>e.id));
     const tombSet=new Set(data.tombstone_gids||[]);
     if(tombSet.size&&S.game&&tombSet.has(S.game.id)){
-      const _g=S.game;
-      const _label='vs '+(_g.opp||'?')+(_g.date?' ('+_g.date+')':'');
-      const _choice=await showDeletedGameModal(_label);
-      if(_choice==='keep')tombSet.delete(S.game.id);
+      tombSet.delete(S.game.id);
+      toast('⚠ 이 경기가 다른 기기에서 삭제됐지만 진행 중이므로 유지됩니다','err');
     }
 
     // 서버 데이터 + 로컬 미동기화 항목 병합 (서버에 이미 있는 건 제외, tombstone된 gid 제외)
@@ -3094,7 +3100,9 @@ async function loadFromSheets(){
 }
 
 document.addEventListener('keydown',function(e){if(e.key!=='Enter')return;if(document.getElementById('pin-input')===document.activeElement){doLogin();return;}if(document.getElementById('m-opp'))confirmGame();});
-load();r();
+load();
+if(S.game&&S.game.id&&S.scriptUrl)lockGame(S.game.id);
+r();
 if(navigator.serviceWorker){navigator.serviceWorker.register('./sw.js').catch(function(e){console.log('SW registration failed',e);});}
 </script>
 </body>

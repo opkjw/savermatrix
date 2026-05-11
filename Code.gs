@@ -26,7 +26,8 @@ const SHEETS = {
   pit_runs: 'pit_runs',
   roster:   'roster',
   teams:        'teams',         // 팀명 목록 시트 (헤더: name)
-  deleted_gids: 'deleted_gids'  // tombstone: 삭제된 경기 gid 영구 목록
+  deleted_gids: 'deleted_gids',  // tombstone: 삭제된 경기 gid 영구 목록
+  active_locks: 'active_locks'   // 진행 중인 경기 락 (gid, deviceId, lastSeen)
 };
 
 // ── 유틸: 토큰 인증 검사 ───────────────────────────────────
@@ -266,12 +267,87 @@ function addTombstones(gids) {
   sh.getRange(lastRow + 1, 1, newGids.length, 1).setValues(newGids.map(function(g) { return [g]; }));
 }
 
+// ── 유틸: active lock — 진행 중인 경기 보호 ───────────────
+const LOCK_TTL_MS = 15 * 60 * 1000; // 15분 TTL
+
+function hasActiveLock(gid) {
+  const sh = getSheet(SHEETS.active_locks);
+  const vals = sh.getDataRange().getValues();
+  if (vals.length < 2 || !vals[0][0]) return false;
+  const hdrs = vals[0].map(String);
+  const gidCol = hdrs.indexOf('gid');
+  const lastSeenCol = hdrs.indexOf('lastSeen');
+  if (gidCol < 0 || lastSeenCol < 0) return false;
+  const now = Date.now();
+  return vals.slice(1).some(function(r) {
+    return String(r[gidCol]) === String(gid) && (now - Number(r[lastSeenCol])) < LOCK_TTL_MS;
+  });
+}
+
+function upsertLock(gid, deviceId) {
+  const sh = getSheet(SHEETS.active_locks);
+  const now = Date.now();
+  const vals = sh.getDataRange().getValues();
+  if (vals.length < 1 || !vals[0][0]) {
+    sh.getRange(1, 1, 1, 3).setValues([['gid', 'deviceId', 'lastSeen']]);
+    sh.getRange(2, 1, 1, 3).setValues([[String(gid), String(deviceId), now]]);
+    return;
+  }
+  const hdrs = vals[0].map(String);
+  const gidCol = hdrs.indexOf('gid');
+  const deviceCol = hdrs.indexOf('deviceId');
+  const lastSeenCol = hdrs.indexOf('lastSeen');
+  for (var i = 1; i < vals.length; i++) {
+    if (String(vals[i][gidCol]) === String(gid) && String(vals[i][deviceCol]) === String(deviceId)) {
+      sh.getRange(i + 1, lastSeenCol + 1).setValue(now);
+      return;
+    }
+  }
+  const row = hdrs.map(function(h) {
+    if (h === 'gid') return String(gid);
+    if (h === 'deviceId') return String(deviceId);
+    if (h === 'lastSeen') return now;
+    return '';
+  });
+  sh.getRange(sh.getLastRow() + 1, 1, 1, row.length).setValues([row]);
+}
+
+function removeLock(gid, deviceId) {
+  const sh = getSheet(SHEETS.active_locks);
+  const vals = sh.getDataRange().getValues();
+  if (vals.length < 2) return;
+  const hdrs = vals[0].map(String);
+  const gidCol = hdrs.indexOf('gid');
+  const deviceCol = hdrs.indexOf('deviceId');
+  if (gidCol < 0) return;
+  for (var i = vals.length - 1; i >= 1; i--) {
+    if (String(vals[i][gidCol]) === String(gid) && String(vals[i][deviceCol]) === String(deviceId)) {
+      sh.deleteRow(i + 1);
+    }
+  }
+}
+
 // ── POST 핸들러: 기록 동기화 ───────────────────────────────
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
     if (!checkAuth(data.token || '')) {
       return out({ status: 'error', message: '인증 실패: 올바른 토큰이 필요합니다.' });
+    }
+    // 경기 락 획득/갱신/해제
+    if (data.type === 'lock') {
+      var lockGid = String(data.gid || '');
+      var lockDevice = String(data.deviceId || '');
+      if (!lockGid || !lockDevice) return out({ status: 'error', message: 'gid/deviceId 필요' });
+      if (data.action === 'acquire' || data.action === 'refresh') {
+        upsertLock(lockGid, lockDevice);
+        return out({ status: 'ok' });
+      }
+      if (data.action === 'release') {
+        removeLock(lockGid, lockDevice);
+        return out({ status: 'ok' });
+      }
+      return out({ status: 'error', message: '알 수 없는 action' });
     }
     if (data.type === 'sync') {
       // 삭제 처리 (새 데이터 upsert 전에) — 한도 적용 + 문자열 변환
@@ -280,12 +356,15 @@ function doPost(e) {
                           .map(function(g){ return String(g); })
                           .filter(function(g){ return g && g.length <= VAL_LIMITS.maxStrLen; });
       var delSkipped = rawDel.length - delGids.length;
-      if (delGids.length) {
-        deleteByGid(SHEETS.games,    delGids);
-        deleteByGid(SHEETS.bat_log,  delGids);
-        deleteByGid(SHEETS.pit_bf,   delGids);
-        deleteByGid(SHEETS.pit_runs, delGids);
-        addTombstones(delGids); // 삭제된 gid를 tombstone에 영구 기록
+      // 활성 락이 걸린 경기는 삭제 거부 (서버 레벨 보호)
+      var lockedGids   = delGids.filter(function(g) { return hasActiveLock(g); });
+      var actualDelGids = delGids.filter(function(g) { return !hasActiveLock(g); });
+      if (actualDelGids.length) {
+        deleteByGid(SHEETS.games,    actualDelGids);
+        deleteByGid(SHEETS.bat_log,  actualDelGids);
+        deleteByGid(SHEETS.pit_bf,   actualDelGids);
+        deleteByGid(SHEETS.pit_runs, actualDelGids);
+        addTombstones(actualDelGids); // 삭제된 gid를 tombstone에 영구 기록
       }
       // tombstone 로드: 삭제된 gid로 들어오는 레코드는 upsert 거부
       var tombGids = readTombstoneGids();
@@ -306,7 +385,8 @@ function doPost(e) {
       return out({
         status: 'ok',
         tombstone_gids: tombGids,
-        accepted: { games: filtGames.length, bat_log: filtBat.length, pit_bf: filtPbf.length, pit_runs: filtPrun.length, deleted_gids: delGids.length },
+        locked_gids:    lockedGids,
+        accepted: { games: filtGames.length, bat_log: filtBat.length, pit_bf: filtPbf.length, pit_runs: filtPrun.length, deleted_gids: actualDelGids.length },
         skipped:  { games: vGames.skipped,   bat_log: vBat.skipped,  pit_bf: vPbf.skipped,  pit_runs: vPrun.skipped,  deleted_gids: delSkipped }
       });
     }
