@@ -2741,7 +2741,24 @@ function showGameModal(){
   const tbOn=tbBase+';background:var(--navy);color:#fff;border-color:var(--navy)';
   const tbOff=tbBase+';background:var(--card);color:var(--txt2)';
   const isNewGame=!S.game;
+  const isUser=S.role==='user';
+  const skipPicker=!!window._gameModalSkipPicker;
+  window._gameModalSkipPicker=false;
   const canFetch=isNewGame&&S.scriptUrl&&navigator.onLine;
+  // 학부모는 신규 경기 시작 시 "오늘의 경기 목록" 뷰로 안내 (오프라인이면 즉시, 온라인이면 fetch 후)
+  if(isUser&&isNewGame&&!skipPicker){
+    if(canFetch){
+      document.getElementById('modal-root').innerHTML=
+        '<div class="modal-bg"><div class="modal">'
+        +'<h3>오늘의 경기 확인 중</h3>'
+        +'<div style="font-size:13px;color:var(--txt2);text-align:center;padding:20px 0">⏳ 감독/코치가 시작한 경기를 찾는 중...</div>'
+        +'</div></div>';
+      fetchGamesOnly().then(function(res){renderUserGamePicker(dd,res);});
+    } else {
+      renderUserGamePicker(dd,{ok:false,reason:'offline'});
+    }
+    return;
+  }
   const noticeHtml=isNewGame
     ?(canFetch
         ?'<div id="m-sync-notice" style="font-size:11px;color:var(--txt2);margin-bottom:10px;padding:6px 10px;background:var(--bg2);border-radius:6px">⏳ 다른 단말의 경기 목록 확인 중...</div>'
@@ -2770,6 +2787,57 @@ function showGameModal(){
       else n.outerHTML='<div style="font-size:11px;color:#92400e;margin-bottom:10px;padding:6px 10px;background:#fef3c7;border-radius:6px">⚠ 서버 확인 실패 — 로컬 데이터만 검사됩니다</div>';
     });
   }
+}
+function renderUserGamePicker(today,res){
+  const todayGames=S.games.filter(function(g){return g.date===today;});
+  const statusHtml=res&&res.ok
+    ?'<div style="font-size:11px;color:#15803d;margin-bottom:12px;padding:6px 10px;background:#dcfce7;border-radius:6px">✓ 경기 목록 최신화 완료'+(res.added>0?' ('+res.added+'건 신규)':'')+'</div>'
+    :(res&&res.reason==='offline'
+        ?'<div style="font-size:11px;color:#92400e;margin-bottom:12px;padding:6px 10px;background:#fef3c7;border-radius:6px">⚠ 오프라인 — 마지막으로 받은 목록만 표시됩니다</div>'
+        :'<div style="font-size:11px;color:#92400e;margin-bottom:12px;padding:6px 10px;background:#fef3c7;border-radius:6px">⚠ 서버 확인 실패 — 로컬 목록만 표시됩니다</div>');
+  var listHtml='';
+  if(todayGames.length===0){
+    listHtml=''
+      +'<div style="text-align:center;padding:24px 12px;background:var(--bg2);border-radius:var(--r);margin-bottom:14px">'
+      +'<div style="font-size:36px;margin-bottom:8px">🔍</div>'
+      +'<div style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:4px">오늘 시작된 경기가 없어요</div>'
+      +'<div style="font-size:12px;color:var(--txt2);line-height:1.6">감독/코치가 경기를 시작하면<br>여기에 표시됩니다</div>'
+      +'</div>';
+  } else {
+    listHtml=todayGames.map(function(g){
+      const bCnt=S.blog.filter(function(e){return e.gid===g.id;}).length;
+      const pCnt=S.pit_bf.filter(function(e){return e.gid===g.id;}).length;
+      const recBy=g.recordedBy||'admin';
+      const recLbl=recBy==='admin'?'👨‍💼 감독/코치':recBy==='recorder'?'📋 기록자':'👨‍👩‍👦 학부모';
+      const typLbl=(g.type||'O')==='P'?'연습경기':'정식경기';
+      return ''
+        +'<div style="border:1px solid var(--bdr);border-radius:var(--rl);padding:12px;margin-bottom:10px;background:var(--card)">'
+        +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+        +'<div style="font-size:15px;font-weight:700;color:var(--txt)">vs '+esc(g.opp)+'</div>'
+        +'<div style="font-size:11px;color:var(--txt2);background:var(--bg2);padding:2px 8px;border-radius:10px">'+typLbl+'</div>'
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--txt2);margin-bottom:10px">'+recLbl+' · 타자 '+bCnt+'건 · 투수 '+pCnt+'건</div>'
+        +'<button onclick="resumeExistingGame(\''+g.id+'\')" style="width:100%;padding:11px;background:var(--navy);color:#fff;border:none;border-radius:var(--r);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">참여하기</button>'
+        +'</div>';
+    }).join('');
+  }
+  const refreshBtn=S.scriptUrl&&navigator.onLine
+    ?'<button onclick="showGameModal()" style="flex:1;padding:11px;background:var(--card);color:var(--txt2);border:1px solid var(--bdr);border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">🔄 새로고침</button>'
+    :'';
+  document.getElementById('modal-root').innerHTML=
+    '<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal" style="max-height:80vh;overflow-y:auto">'
+    +'<h3>📅 오늘의 경기 ('+today+')</h3>'
+    +statusHtml
+    +listHtml
+    +'<div style="margin:14px 0 10px;padding-top:14px;border-top:1px dashed var(--bdr);text-align:center">'
+    +'<button onclick="window._gameModalSkipPicker=true;showGameModal()" style="background:none;border:none;color:var(--navy);font-size:12px;font-weight:600;text-decoration:underline;cursor:pointer;font-family:inherit;padding:4px">+ 직접 경기 만들기</button>'
+    +'<div style="font-size:10px;color:var(--txt2);margin-top:4px">감독/코치가 시작 전이거나 다른 경기를 추가할 때</div>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;margin-top:6px">'
+    +refreshBtn
+    +'<button onclick="closeModal()" style="flex:1;padding:11px;background:var(--card);color:var(--txt2);border:1px solid var(--bdr);border-radius:var(--r);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">닫기</button>'
+    +'</div>'
+    +'</div></div>';
 }
 function setGameType(t){
   const base='flex:1;padding:9px 0;border-radius:var(--r);border:1px solid var(--bdr);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit';
