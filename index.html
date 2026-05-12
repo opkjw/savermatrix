@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="야구기록">
 <meta name="theme-color" content="#1B3A6B">
 <title>⚾ 우리아이 야구 기록 Ball Matrix</title>
-<!-- version: 2026-05-10 -->
+<!-- version: 2026-05-12 -->
 <style>
 :root{--navy:#1B3A6B;--red:#922B21;--bg:#f9fafb;--card:#ffffff;--bg2:#f3f4f6;--txt:#111827;--txt2:#4b5563;--bdr:#e5e7eb;--bdr2:#d1d5db;--r:8px;--rl:12px;--sfb:env(safe-area-inset-bottom,0px);}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -83,7 +83,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans KR'
 .rbigbtn{flex:1;padding:16px 10px;border:none;border-radius:var(--rl);cursor:pointer;text-align:center;font-size:14px;font-weight:600;line-height:1.4;font-family:inherit}
 .rbigbtn:active{filter:brightness(.9)}
 .rbigbtn.earn{background:#FDEDEC;color:var(--red);border:1px solid #F5B7B1}
-.rbigbtn.uearn{background:var(--bg2);color:var(--txt2);border:1px solid var(--bdr)}
+.rbigbtn.uearn{background:var(--bg2);color:#374151;border:1px solid var(--bdr)}
 .rminirow{display:flex;gap:8px;margin-bottom:12px}
 .rmini{flex:1;background:var(--bg2);border-radius:var(--r);padding:10px;text-align:center}
 .rminiv{font-size:22px;font-weight:700}
@@ -2216,13 +2216,13 @@ function rBaseDiagram(){
       h+='<div style="background:var(--navy);color:#fff;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:700">#'+p.no+' '+esc(p.name.length>4?p.name.slice(0,4)+'…':p.name)+'</div>';
       h+='<div style="display:flex;gap:3px;margin-top:4px;justify-content:center">';
       if(key==='b3'){
-        h+='<button onclick="advanceBase(\'b3\')" style="background:#b91c1c;color:#fff;border:none;border-radius:4px;padding:4px 6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit">홈인🏠</button>';
+        h+='<button onclick="advanceBase(\'b3\')" style="background:#b91c1c;color:#fff;border:none;border-radius:4px;padding:6px 8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">홈인🏠</button>';
       }else{
-        h+='<button onclick="advanceBase(\''+key+'\')" style="background:#0369a1;color:#fff;border:none;border-radius:4px;padding:4px 6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit">진루⬆</button>';
+        h+='<button onclick="advanceBase(\''+key+'\')" style="background:#0369a1;color:#fff;border:none;border-radius:4px;padding:6px 8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">진루⬆</button>';
       }
-      h+='<button onclick="stealBase(\''+key+'\')" style="background:#047857;color:#fff;border:none;border-radius:4px;padding:4px 6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit">도루✓</button>';
-      h+='<button onclick="caughtBase(\''+key+'\')" style="background:#dc2626;color:#fff;border:none;border-radius:4px;padding:4px 6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit">도루✗</button>';
-      h+='<button onclick="removeFromBase(\''+key+'\')" style="background:#6b7280;color:#fff;border:none;border-radius:4px;padding:4px 6px;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit">아웃</button>';
+      h+='<button onclick="stealBase(\''+key+'\')" style="background:#047857;color:#fff;border:none;border-radius:4px;padding:6px 8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">도루✓</button>';
+      h+='<button onclick="caughtBase(\''+key+'\')" style="background:#dc2626;color:#fff;border:none;border-radius:4px;padding:6px 8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">도루✗</button>';
+      h+='<button onclick="removeFromBase(\''+key+'\')" style="background:#6b7280;color:#fff;border:none;border-radius:4px;padding:6px 8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">아웃</button>';
       h+='</div>';
     }else{
       h+='<div style="border:2px dashed var(--bdr);border-radius:6px;height:34px;display:flex;align-items:center;justify-content:center"><span style="font-size:10px;color:var(--bdr)">—</span></div>';
@@ -3020,17 +3020,28 @@ async function fetchGamesOnly(){
       S.deletedGids=(S.deletedGids||[]).filter(function(gid){return !tombF.has(gid);});
       tombApplied=before-(S.games.length+S.blog.length+S.pit_bf.length+S.pit_runs.length);
     }
-    const localIds=new Set(S.games.map(function(g){return g.id;}));
     const localDel=new Set(S.deletedGids||[]);
-    var added=0;
+    var added=0,updated=0;
     (data.games||[]).forEach(function(g){
-      if(!localIds.has(g.id)&&!localDel.has(g.id)&&!tombF.has(g.id)){
+      if(tombF.has(g.id)||localDel.has(g.id))return;
+      var idx=S.games.findIndex(function(x){return x.id===g.id;});
+      if(idx>=0){
+        S.games[idx]=Object.assign({},S.games[idx],g);
+        S.syncedIds.add('g_'+g.id);
+        updated++;
+      } else {
         S.games.push(g);
         S.syncedIds.add('g_'+g.id);
         added++;
       }
     });
-    if(added||tombApplied)save();
+    // S.game을 갱신: ended면 게임 해제
+    if(S.game){
+      var fg=S.games.find(function(x){return x.id===S.game.id;});
+      if(fg&&fg.status==='ended')S.game=null;
+      else if(fg)S.game=Object.assign({},S.game,fg);
+    }
+    if(added||updated||tombApplied)save();
     return{ok:true,added:added};
   }catch(e){console.error('fetchGamesOnly',e);return{ok:false,reason:e.message};}
 }
@@ -3141,6 +3152,13 @@ async function loadFromSheets(){
 
     // tombstone에 있는 gid는 deletedGids에서도 제거 (이미 영구 삭제됨)
     S.deletedGids=(S.deletedGids||[]).filter(gid=>svrGameIds.has(gid)&&!tombSet.has(gid));
+
+    // S.game을 서버 버전으로 갱신: ended면 게임 해제, 없으면(tombstone) 해제
+    if(S.game){
+      var svrGame=S.games.find(function(g){return g.id===S.game.id;});
+      if(!svrGame||svrGame.status==='ended')S.game=null;
+      else S.game=Object.assign({},S.game,svrGame);
+    }
 
     save();
     const svrTotal=(data.games||[]).length+(data.bat_log||[]).length+(data.pit_bf||[]).length+(data.pit_runs||[]).length;
