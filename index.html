@@ -1921,7 +1921,7 @@ function endGame(){
   S.game=null;S.curPit=null;S.bs=0;S.batSub=0;S.ps=0;
   save();r();toast('경기 종료 — 동기화 중...');
   unlockGame(gid);
-  if(S.scriptUrl&&navigator.onLine)doSync();
+  if(S.scriptUrl&&navigator.onLine){pushGamesOnly();doSync();}
 }
 function leaveGame(){
   if(!S.game)return;
@@ -3026,7 +3026,9 @@ async function fetchGamesOnly(){
       if(tombF.has(g.id)||localDel.has(g.id))return;
       var idx=S.games.findIndex(function(x){return x.id===g.id;});
       if(idx>=0){
-        S.games[idx]=Object.assign({},S.games[idx],g);
+        if(S.syncedIds.has('g_'+g.id)){
+          S.games[idx]=Object.assign({},S.games[idx],g);
+        }
         updated++;
       } else {
         S.games.push(g);
