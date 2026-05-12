@@ -760,6 +760,7 @@ function confirmPlayerSel(){
 function renderGHdr(){
   const pc=pendingCount();
   const isFirstVisit=!S.setupDone;
+  const isUser=S.role==='user';
   var scoreHtml='';
   if(S.game&&(S.tab===0||S.tab===1)){
     var sc=gameScore(S.game.id);
@@ -770,14 +771,14 @@ function renderGHdr(){
   }
   document.getElementById('ghdr').innerHTML=S.game
     ?('<div class="ghdr"><div><div class="gh-title">vs '+esc(S.game.opp)+'</div>'
-      +'<div class="gh-sub">'+esc(S.game.date)+' · G'+String(S.game.no).padStart(2,'0')
+      +'<div class="gh-sub">'+esc(S.game.date)+(S.game.no!=null?' · G'+String(S.game.no).padStart(2,'0'):'')
       +(S.game.type==='P'?' · <span style="background:rgba(255,255,255,.25);border-radius:3px;padding:1px 6px;font-size:10px">연습</span>':'')
       +'</div></div>'
       +scoreHtml
       +'<div class="gh-right">'
       +'<button class="gh-icon" onclick="setTab(4)">☁'+(pc>0?'<div class="pdot"></div>':'')+'</button>'
-      +'<button class="gh-btn" onclick="showGameModal()" style="background:rgba(255,255,255,.15)">변경</button>'
-      +'<button class="gh-btn" onclick="endGame()" style="background:#c0392b;font-weight:700">■ 종료</button>'
+      +(!isUser?'<button class="gh-btn" onclick="showGameModal()" style="background:rgba(255,255,255,.15)">변경</button>':'')
+      +(!isUser?'<button class="gh-btn" onclick="endGame()" style="background:#c0392b;font-weight:700">■ 종료</button>':'')
       +'</div></div>')
     :('<div class="ghdr"><div>'
       +'<div class="gh-title">⚾ 우리아이 야구 기록</div>'
