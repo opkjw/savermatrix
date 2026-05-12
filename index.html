@@ -1121,8 +1121,11 @@ function rLog(){
       h+='vs '+esc(selGame.opp);
       h+=' <span style="background:'+(isOffSel?'#EBF0FB':'#dcfce7')+';color:'+(isOffSel?'var(--navy)':'#15803d')+';border-radius:4px;padding:1px 8px;font-size:11px;font-weight:600">'+(isOffSel?'정식':'연습')+'</span>';
       if(isCurSel)h+=' <span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 8px;font-size:11px;font-weight:700">진행중</span>';
-      h+='<button onclick="showEditGameModal(\''+selGid+'\')" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:3px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit;flex-shrink:0">✏ 수정</button>';
-      h+='<button onclick="delGame(\''+selGid+'\')" style="background:none;border:1px solid #fca5a5;border-radius:var(--r);padding:3px 10px;font-size:11px;color:#dc2626;cursor:pointer;font-family:inherit;flex-shrink:0">🗑 삭제</button>';
+      var _canManageGame=(S.role==='admin'||S.role==='recorder'||!S.role);
+      if(_canManageGame){
+        h+='<button onclick="showEditGameModal(\''+selGid+'\')" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:3px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit;flex-shrink:0">✏ 수정</button>';
+        h+='<button onclick="delGame(\''+selGid+'\')" style="background:none;border:1px solid #fca5a5;border-radius:var(--r);padding:3px 10px;font-size:11px;color:#dc2626;cursor:pointer;font-family:inherit;flex-shrink:0">🗑 삭제</button>';
+      }
       h+='</div>';
       var _isAddAllowed=(S.role==='admin'||S.role==='recorder'||!S.role);
       if(_isAddAllowed){
@@ -2392,6 +2395,7 @@ function del(type,id){
 }
 
 function delGame(gid){
+  if(S.role==='user'){alert('학부모 모드에서는 경기를 삭제할 수 없습니다.');return;}
   const g=S.games.find(x=>x.id===gid);
   if(!g)return;
   if(S.game&&S.game.id===gid){alert('경기가 진행 중입니다. 먼저 ■ 종료 버튼으로 경기를 끝내주세요.');return;}
