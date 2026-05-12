@@ -53,7 +53,7 @@ const VALID_OC = {
 // ── 시트별 검증 스키마 ────────────────────────────────────
 // type: 's'=string, 'n'=number, 'b'=boolean, 'd'=date(YYYY-MM-DD), 'oc_bat'/'oc_pit'=OC코드
 function getSchema(name) {
-  if (name === 'games')    return { req: ['id'], fields: { id:'s', date:'d', opp:'s', type:'s', our:'n', opp_:'n', notes:'s', lastSync:'s' } };
+  if (name === 'games')    return { req: ['id'], fields: { id:'s', date:'d', opp:'s', type:'s', our:'n', opp_:'n', notes:'s', lastSync:'s', status:'s' } };
   if (name === 'bat_log')  return { req: ['id','gid'], fields: { id:'s', gid:'s', date:'d', opp:'s', pno:'n', pn:'s', oc:'oc_bat', rbi:'n', run:'n', sb:'n', cs:'n', zone:'s', dir:'s' } };
   if (name === 'pit_bf')   return { req: ['id','gid'], fields: { id:'s', gid:'s', date:'d', opp:'s', pno:'n', pn:'s', oc:'oc_pit' } };
   if (name === 'pit_runs') return { req: ['id','gid'], fields: { id:'s', gid:'s', date:'d', opp:'s', pno:'n', pn:'s', earned:'b' } };

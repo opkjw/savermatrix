@@ -779,6 +779,7 @@ function renderGHdr(){
       +'<button class="gh-icon" onclick="setTab(4)">☁'+(pc>0?'<div class="pdot"></div>':'')+'</button>'
       +(!isUser?'<button class="gh-btn" onclick="showGameModal()" style="background:rgba(255,255,255,.15)">변경</button>':'')
       +(!isUser?'<button class="gh-btn" onclick="endGame()" style="background:#c0392b;font-weight:700">■ 종료</button>':'')
+      +(isUser?'<button class="gh-btn" onclick="leaveGame()" style="background:rgba(255,255,255,.15)">← 나가기</button>':'')
       +'</div></div>')
     :('<div class="ghdr"><div>'
       +'<div class="gh-title">⚾ 우리아이 야구 기록</div>'
@@ -1121,11 +1122,17 @@ function rLog(){
       if(sd)h+=parseInt(sdParts[1])+'월 '+parseInt(sdParts[2])+'일 ('+sdow+') &nbsp;';
       h+='vs '+esc(selGame.opp);
       h+=' <span style="background:'+(isOffSel?'#EBF0FB':'#dcfce7')+';color:'+(isOffSel?'var(--navy)':'#15803d')+';border-radius:4px;padding:1px 8px;font-size:11px;font-weight:600">'+(isOffSel?'정식':'연습')+'</span>';
-      if(isCurSel)h+=' <span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 8px;font-size:11px;font-weight:700">진행중</span>';
+      if(selGame.status==='active'||(selGame.status===undefined&&isCurSel))
+        h+=' <span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 8px;font-size:11px;font-weight:700">진행중</span>';
+      else if(selGame.status==='ended')
+        h+=' <span style="background:#f3f4f6;color:#6b7280;border-radius:4px;padding:1px 8px;font-size:11px;font-weight:600">종료</span>';
       var _canManageGame=(S.role==='admin'||S.role==='recorder'||!S.role);
       if(_canManageGame){
         h+='<button onclick="showEditGameModal(\''+selGid+'\')" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:3px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit;flex-shrink:0">✏ 수정</button>';
-        h+='<button onclick="delGame(\''+selGid+'\')" style="background:none;border:1px solid #fca5a5;border-radius:var(--r);padding:3px 10px;font-size:11px;color:#dc2626;cursor:pointer;font-family:inherit;flex-shrink:0">🗑 삭제</button>';
+        if(selGame.status==='active')
+          h+='<button onclick="forceEndGame(\''+selGid+'\')" style="background:none;border:1px solid #fbbf24;border-radius:var(--r);padding:3px 10px;font-size:11px;color:#b45309;cursor:pointer;font-family:inherit;flex-shrink:0">⏹ 강제종료</button>';
+        else
+          h+='<button onclick="delGame(\''+selGid+'\')" style="background:none;border:1px solid #fca5a5;border-radius:var(--r);padding:3px 10px;font-size:11px;color:#dc2626;cursor:pointer;font-family:inherit;flex-shrink:0">🗑 삭제</button>';
       }
       h+='</div>';
       var _isAddAllowed=(S.role==='admin'||S.role==='recorder'||!S.role);
@@ -1907,11 +1914,34 @@ function unlockGame(gid){
 }
 function endGame(){
   if(!S.game)return;
-  if(!confirm('vs '+S.game.opp+' 경기를 종료하시겠습니까?'))return;
+  if(!confirm('vs '+S.game.opp+' 경기를 종료하시겠습니까?\n\n종료 후 자동으로 동기화됩니다.'))return;
+  var gid=S.game.id;
+  var gi=S.games.findIndex(function(x){return x.id===gid;});
+  if(gi>=0){S.games[gi].status='ended';S.syncedIds.delete('g_'+gid);}
+  S.game=null;S.curPit=null;S.bs=0;S.batSub=0;S.ps=0;
+  save();r();toast('경기 종료 — 동기화 중...');
+  unlockGame(gid);
+  if(S.scriptUrl&&navigator.onLine)doSync();
+}
+function leaveGame(){
+  if(!S.game)return;
+  if(!confirm('경기에서 나가시겠습니까?\n경기 기록은 유지됩니다.'))return;
   var gid=S.game.id;
   S.game=null;S.curPit=null;S.bs=0;S.batSub=0;S.ps=0;
-  save();r();toast('경기 종료');
+  save();r();toast('경기에서 나왔습니다');
   unlockGame(gid);
+}
+function forceEndGame(gid){
+  if(S.role==='user')return;
+  const g=S.games.find(function(x){return x.id===gid;});
+  if(!g)return;
+  const label='vs '+(g.opp||'?')+(g.date?' ('+g.date+')':'');
+  if(!confirm('경기를 강제 종료하시겠습니까?\n\n'+label+'\n\n종료 후 삭제할 수 있습니다.'))return;
+  const gi=S.games.findIndex(function(x){return x.id===gid;});
+  if(gi>=0){S.games[gi].status='ended';S.syncedIds.delete('g_'+gid);}
+  if(S.game&&S.game.id===gid){S.game=null;S.curPit=null;S.bs=0;S.batSub=0;S.ps=0;unlockGame(gid);}
+  save();renderCt();toast('경기가 강제 종료됐습니다','ok');
+  if(S.scriptUrl&&navigator.onLine)pushGamesOnly();
 }
 function selBat(no){S.bp=no;S.bs=1;r();}
 function rRunConfirm(){
@@ -2399,12 +2429,13 @@ function delGame(gid){
   if(S.role==='user'){alert('학부모 모드에서는 경기를 삭제할 수 없습니다.');return;}
   const g=S.games.find(x=>x.id===gid);
   if(!g)return;
+  if(g.status==='active'){alert('진행 중인 경기는 삭제할 수 없습니다.\n기록 탭에서 먼저 ⏹ 강제종료 후 삭제해주세요.');return;}
   if(S.game&&S.game.id===gid){alert('경기가 진행 중입니다. 먼저 ■ 종료 버튼으로 경기를 끝내주세요.');return;}
   const bCnt=S.blog.filter(e=>e.gid===gid).length;
   const pCnt=S.pit_bf.filter(e=>e.gid===gid).length;
   const label='vs '+(g.opp||'?')+(g.date?' ('+g.date+')':'');
   var msg='경기를 삭제하시겠습니까?\n\n'+label;
-  if(bCnt||pCnt)msg+='\n\n타자 기록 '+bCnt+'건, 투수 기록 '+pCnt+'건도 함께 삭제됩니다.\n\n⚠ 다른 기기에서 기록 중일 수 있습니다.';
+  if(bCnt||pCnt)msg+='\n\n타자 기록 '+bCnt+'건, 투수 기록 '+pCnt+'건도 함께 삭제됩니다.';
   if(!confirm(msg))return;
   S.games=S.games.filter(x=>x.id!==gid);
   S.blog=S.blog.filter(e=>e.gid!==gid);
@@ -2923,7 +2954,7 @@ function confirmGame(){
   doCreateGame(d,o,t);
 }
 function doCreateGame(d,o,t){
-  S.game={id:UID(),no:S.gcnt++,date:d,opp:o,type:t,recordedBy:S.role||'admin'};
+  S.game={id:UID(),no:S.gcnt++,date:d,opp:o,type:t,recordedBy:S.role||'admin',status:'active'};
   S.games.push({...S.game});
   S.curPit=null;S.bases={b1:null,b2:null,b3:null};S.outs=0;save();closeModal();r();toast('vs '+o+' '+(t==='P'?'연습':'정식')+'경기 시작!');
   if(S.scriptUrl&&navigator.onLine){
