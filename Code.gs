@@ -171,14 +171,16 @@ function upsertRows(sheetName, items) {
   let hdrs;
 
   if (allVals.length < 1 || !allVals[0][0]) {
-    // 시트가 비어있음 → 첫 아이템 기준으로 헤더 생성
-    hdrs = Object.keys(items[0]);
+    // 시트가 비어있음 → 모든 아이템 기준으로 헤더 생성
+    const allKeysSet = new Set(items.flatMap(item => Object.keys(item)));
+    hdrs = [...allKeysSet];
     sh.clearContents();
     sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]);
   } else {
     hdrs = allVals[0].map(String);
-    // 새 필드가 생겼으면 헤더에 추가
-    const newKeys = Object.keys(items[0]).filter(k => k && !hdrs.includes(k));
+    // 새 필드가 생겼으면 헤더에 추가 (모든 아이템 스캔)
+    const allKeys = new Set(items.flatMap(item => Object.keys(item)));
+    const newKeys = [...allKeys].filter(k => k && !hdrs.includes(k));
     if (newKeys.length) {
       hdrs = [...hdrs, ...newKeys];
       sh.getRange(1, 1, 1, hdrs.length).setValues([hdrs]);
