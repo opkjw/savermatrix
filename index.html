@@ -2557,16 +2557,16 @@ function renderEditModal(){
     h+='<div class="em-card"><div class="em-card-lbl">도루</div><div class="em-card-val" id="em-sb">'+es.sb+'</div><div class="em-card-btns"><button class="em-card-btn" onclick="editState.sb=Math.max(0,editState.sb-1);document.getElementById(\'em-sb\').textContent=editState.sb">−</button><button class="em-card-btn" onclick="editState.sb++;document.getElementById(\'em-sb\').textContent=editState.sb">+</button></div></div>';
     h+='</div>';
     if(isBIP){
-      h+='<div class="em-lbl">타구 방향 <span style="font-weight:400">(선택사항)</span></div>'
+      h+='<div class="em-lbl">타구 방향 <span style="font-size:10px;background:'+(es.zone?'#E5F3E8':'#FEF3C7')+';color:'+(es.zone?'#15803D':'#92400E')+';padding:1px 5px;border-radius:3px;font-weight:700">'+(es.zone?'✓ 선택됨':'필수')+'</span></div>'
         +'<div class="em-zone-of">';
       ['LF','LC','CF','RC','RF'].forEach(z=>{
         const sel=es.zone===z;
-        h+='<button class="em-zbtn" onclick="editState.zone=editState.zone===\''+z+'\'?null:\''+z+'\';renderEditModal()" style="border:'+(sel?'2px solid var(--navy)':'1px solid var(--bdr)')+';background:'+(sel?'#EBF0FB':'var(--bg2)')+';color:'+(sel?'var(--navy)':'var(--txt2)')+';font-weight:'+(sel?'700':'400')+'">'+z+'</button>';
+        h+='<button class="em-zbtn" onclick="editState.zone=\''+z+'\';renderEditModal()" style="border:'+(sel?'2px solid var(--navy)':'1px solid var(--bdr)')+';background:'+(sel?'#EBF0FB':'var(--bg2)')+';color:'+(sel?'var(--navy)':'var(--txt2)')+';font-weight:'+(sel?'700':'400')+'">'+z+'</button>';
       });
       h+='</div><div class="em-zone-if">';
       ['3B','SS','2B','1B'].forEach(z=>{
         const sel=es.zone===z;
-        h+='<button class="em-zbtn" onclick="editState.zone=editState.zone===\''+z+'\'?null:\''+z+'\';renderEditModal()" style="border:'+(sel?'2px solid var(--red)':'1px solid var(--bdr)')+';background:'+(sel?'#FDEDEC':'var(--bg2)')+';color:'+(sel?'var(--red)':'var(--txt2)')+';font-weight:'+(sel?'700':'400')+'">'+z+'</button>';
+        h+='<button class="em-zbtn" onclick="editState.zone=\''+z+'\';renderEditModal()" style="border:'+(sel?'2px solid var(--red)':'1px solid var(--bdr)')+';background:'+(sel?'#FDEDEC':'var(--bg2)')+';color:'+(sel?'var(--red)':'var(--txt2)')+';font-weight:'+(sel?'700':'400')+'">'+z+'</button>';
       });
       h+='</div>';
     }
