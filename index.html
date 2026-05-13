@@ -3334,7 +3334,10 @@ document.addEventListener('keydown',function(e){if(e.key!=='Enter')return;if(doc
 load();
 if(S.game&&S.game.id&&S.scriptUrl)lockGame(S.game.id);
 r();
-if(navigator.serviceWorker){navigator.serviceWorker.register('./sw.js').catch(function(e){console.log('SW registration failed',e);});}
+if(navigator.serviceWorker){
+  navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).catch(function(e){console.log('SW registration failed',e);});
+  navigator.serviceWorker.addEventListener('controllerchange',function(){window.location.reload();});
+}
 </script>
 </body>
 </html>
