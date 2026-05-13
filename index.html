@@ -1667,13 +1667,13 @@ function closeZoneModal(){var el=document.getElementById('zone-modal');if(el){el
 function showZoneModal(cbName,currentZone){
   var el=document.getElementById('zone-modal');
   if(!el)return;
-  el.innerHTML='<div style="width:100%;background:#1a2a1a;border-radius:20px 20px 0 0;padding:0;max-height:90vh;overflow:hidden">'
-    +'<div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px 10px">'
+  el.innerHTML='<div style="width:100%;background:#1a2a1a;border-radius:20px 20px 0 0;display:flex;flex-direction:column;max-height:92vh">'
+    +'<div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:14px 20px 8px">'
     +'<div style="font-size:16px;font-weight:700;color:#fff">🎯 타구 방향 선택</div>'
     +'<button onclick="closeZoneModal()" style="font-size:22px;background:none;border:none;color:rgba(255,255,255,0.55);padding:4px 8px;cursor:pointer;font-family:inherit">✕</button>'
     +'</div>'
-    +'<div style="padding:0 8px 4px">'+rZoneInput(currentZone,cbName)+'</div>'
-    +'<div style="padding:8px 20px 28px;text-align:center;font-size:11px;color:rgba(255,255,255,0.45);line-height:1.5">'
+    +'<div style="flex:1;min-height:0;padding:0 8px 4px;overflow:hidden">'+rZoneInput(currentZone,cbName)+'</div>'
+    +'<div style="flex-shrink:0;padding:6px 20px 24px;text-align:center;font-size:11px;color:rgba(255,255,255,0.45);line-height:1.5">'
     +'유격·2루 구분: 공이 2루 베이스 왼쪽으로 가면 유격, 오른쪽이나 정면은 2루<br>'
     +'<span style="font-size:10px;color:rgba(255,255,255,0.3)">(처리한 야수 무관 — 공이 간 방향 기준)</span>'
     +'</div>'
@@ -1732,7 +1732,7 @@ function rZoneInput(currentZone,cb){
   h+='<path d="M '+if1.x+' '+if1.y+' A '+rIF+' '+rIF+' 0 0 1 '+if2.x+' '+if2.y+'" fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="2"/>';
   h+='<path d="M '+bg1.x+' '+bg1.y+' A '+rOF+' '+rOF+' 0 0 1 '+bg2.x+' '+bg2.y+'" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2.5"/>';
   h+='<polygon points="'+cx+','+(cy-10)+' '+(cx+8)+','+(cy+1)+' '+(cx+4)+','+(cy+9)+' '+(cx-4)+','+(cy+9)+' '+(cx-8)+','+(cy+1)+'" fill="white" opacity=".9"/>';
-  return '<svg viewBox="0 0 350 295" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block;touch-action:manipulation">'+h+'</svg>';
+  return '<svg viewBox="0 0 350 295" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;max-height:calc(92vh - 140px);display:block;touch-action:manipulation">'+h+'</svg>';
 }
 
 function rSprayChart(pno){
