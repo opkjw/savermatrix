@@ -464,6 +464,21 @@ function doGet(e) {
       });
     }
 
+    // 특정 경기들의 기록만 불러오기 (on-demand lazy loading)
+    if (action === 'fetchRecords') {
+      var gidsParam = e.parameter.gids || '';
+      var gids = gidsParam.split(',').map(function(g){return g.trim();}).filter(Boolean);
+      if (!gids.length) return out({ status: 'ok', bat_log: [], pit_bf: [], pit_runs: [] });
+      var gidSet = {};
+      gids.forEach(function(g){ gidSet[g] = true; });
+      return out({
+        status:   'ok',
+        bat_log:  readAll(SHEETS.bat_log).filter(function(r){ return gidSet[r.gid]; }),
+        pit_bf:   readAll(SHEETS.pit_bf).filter(function(r){ return gidSet[r.gid]; }),
+        pit_runs: readAll(SHEETS.pit_runs).filter(function(r){ return gidSet[r.gid]; })
+      });
+    }
+
     // 전체 데이터 불러오기
     if (action === 'fetch') {
       return out({

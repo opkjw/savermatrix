@@ -283,7 +283,7 @@ let S={
   game:null,gcnt:1,games:[],
   blog:[],pit_bf:[],pit_runs:[],
   // 동기화
-  scriptUrl:"",scriptToken:"",lastSync:null,syncing:false,loading:false,rosterDirty:false,syncedIds:new Set(),deletedGids:[],
+  scriptUrl:"",scriptToken:"",lastSync:null,syncing:false,loading:false,statsLoading:false,logLoading:false,rosterDirty:false,syncedIds:new Set(),downloadedGids:new Set(),deletedGids:[],
 };
 
 // ── 저장/불러오기 ──────────────────────────────────────────
@@ -295,6 +295,16 @@ function load(){
       ['blog','pit_bf','pit_runs','games','game','gcnt','scriptUrl','scriptToken','lastSync','rosterDirty','deletedGids','schoolName','bases','outs','pitBases','pitOuts'].forEach(k=>{if(d[k]!==undefined)S[k]=d[k];});
       if(d.myPlayer!=null)S.myPlayer=parseInt(d.myPlayer)||null;
       S.syncedIds=new Set(d.syncedIds||[]);
+      // downloadedGids: 저장된 값 복원, 없으면 기존 로컬 레코드에서 bootstrap
+      if(d.downloadedGids&&d.downloadedGids.length){
+        S.downloadedGids=new Set(d.downloadedGids);
+      }else{
+        var _gids=new Set();
+        (S.blog||[]).forEach(function(e){if(e.gid)_gids.add(e.gid);});
+        (S.pit_bf||[]).forEach(function(e){if(e.gid)_gids.add(e.gid);});
+        (S.pit_runs||[]).forEach(function(e){if(e.gid)_gids.add(e.gid);});
+        S.downloadedGids=_gids;
+      }
       if(d.setupDone!==undefined)S.setupDone=d.setupDone;
       else S.setupDone=!!(S.scriptUrl||S.games.length>0||S.schoolName);
       if(d.setupStep!==undefined)S.setupStep=d.setupStep;
@@ -309,7 +319,7 @@ function save(){
     localStorage.setItem('bb_final',JSON.stringify({
       blog:S.blog,pit_bf:S.pit_bf,pit_runs:S.pit_runs,games:S.games,
       game:S.game,gcnt:S.gcnt,scriptUrl:S.scriptUrl,lastSync:S.lastSync,
-      syncedIds:[...S.syncedIds],roster:ROSTER,rosterDirty:S.rosterDirty,myPlayer:S.myPlayer,
+      syncedIds:[...S.syncedIds],downloadedGids:[...S.downloadedGids],roster:ROSTER,rosterDirty:S.rosterDirty,myPlayer:S.myPlayer,
       deletedGids:S.deletedGids,schoolName:S.schoolName,scriptToken:S.scriptToken,setupDone:S.setupDone,setupStep:S.setupStep,bases:S.bases,outs:S.outs,pitBases:S.pitBases,pitOuts:S.pitOuts,
     }));
   }catch(e){console.error(e);}
@@ -826,7 +836,7 @@ function renderCt(){
   else el.innerHTML=rSettings();
 }
 function r(){renderSetup();renderPlayerSel();renderLogin();renderGHdr();renderTabs();renderCt();}
-function setTab(i){if(i===3&&S.role==='recorder')return;S.tab=i;r();}
+function setTab(i){if(i===3&&S.role==='recorder')return;S.tab=i;r();if(i===3)checkAndLoadStats();}
 
 // ── 타자 탭 ──────────────────────────────────────────────
 function rBatTab(){
@@ -1207,6 +1217,22 @@ function rLog(){
   const myHighlight=(S.role==='user')?Number(activeNo()):null;
 
   if(!be.length&&!pbf.length){
+    const gidSynced=S.syncedIds.has('g_'+selGid);
+    const gidDownloaded=S.downloadedGids.has(selGid);
+    const needsLoad=gidSynced&&!gidDownloaded&&S.scriptUrl&&navigator.onLine;
+    if(S.logLoading){
+      h+='<div style="padding:32px 24px;text-align:center;color:var(--txt2)"><span style="font-size:24px">⏳</span><br><span style="font-size:13px">기록 불러오는 중...</span></div>';
+      return h;
+    }
+    if(needsLoad&&!S.logLoading){
+      S.logLoading=true;
+      fetchRecordsByGids([selGid]).then(function(){
+        S.logLoading=false;
+        if(S.tab===2)renderCt();
+      });
+      h+='<div style="padding:32px 24px;text-align:center;color:var(--txt2)"><span style="font-size:24px">⏳</span><br><span style="font-size:13px">기록 불러오는 중...</span></div>';
+      return h;
+    }
     h+='<div class="empty" style="padding:24px">이 경기의 기록이 없습니다.</div>';
     return h;
   }
@@ -1524,6 +1550,12 @@ function rNoRecMsg(name,type){
   return'<div style="margin:0 12px 12px;padding:18px;background:var(--card);border:1px solid var(--bdr);border-radius:var(--rl);text-align:center;color:var(--txt2);font-size:13px">'+esc(name)+'의 '+type+' 기록이 없습니다.</div>';
 }
 function rStats(){
+  const missingCnt=S.games.filter(function(g){return S.syncedIds.has('g_'+g.id)&&!S.downloadedGids.has(g.id);}).length;
+  const loadingBanner=S.statsLoading
+    ?'<div style="margin:8px 12px;padding:10px 14px;background:#EBF4FF;border:1px solid #BFDBFE;border-radius:var(--r);font-size:12px;color:var(--navy);display:flex;align-items:center;gap:8px"><span style="animation:spin 1s linear infinite;display:inline-block">⏳</span> '+missingCnt+'경기 기록 불러오는 중...</div>'
+    :missingCnt>0&&S.scriptUrl
+      ?'<div style="margin:8px 12px;padding:10px 14px;background:#FFF8F0;border:1px solid #FDE68A;border-radius:var(--r);font-size:12px;color:#92400E;display:flex;align-items:center;justify-content:space-between"><span>'+missingCnt+'경기 기록 미로드 — 통계가 불완전할 수 있습니다</span><button onclick="checkAndLoadStats()" style="background:var(--navy);color:#fff;border:none;border-radius:var(--r);padding:4px 10px;font-size:11px;cursor:pointer;font-family:inherit">불러오기</button></div>'
+      :'';
   const sf=S.statsFilter||'all';
   let filtGids=null;
   if(sf!=='all'){
@@ -1549,7 +1581,7 @@ function rStats(){
   const tbtn=(isAdmin&&saberFocusNo!==null)?'<button onclick="S.batShowAll='+(!showAll)+';renderCt()" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:12px;padding:2px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit">'+(showAll?'선택만 ▲':'전체 선수 ▼')+'</button>':'';
 
   const st=S.statTab||0;
-  let h='<div style="display:flex;gap:8px;padding:10px 12px;border-bottom:1px solid var(--bdr);background:var(--card)">'
+  let h=loadingBanner+'<div style="display:flex;gap:8px;padding:10px 12px;border-bottom:1px solid var(--bdr);background:var(--card)">'
     +'<button onclick="S.statsFilter=\'all\';renderCt()" style="'+(sf==='all'?fbOn:fbOff)+'">전체 '+totalG+'</button>'
     +'<button onclick="S.statsFilter=\'O\';renderCt()" style="'+(sf==='O'?fbOn:fbOff)+'">정식 '+offG+'</button>'
     +'<button onclick="S.statsFilter=\'P\';renderCt()" style="'+(sf==='P'?fbOn:fbOff)+'">연습 '+praG+'</button>'
@@ -2963,6 +2995,7 @@ function confirmGame(){
 function doCreateGame(d,o,t){
   S.game={id:UID(),no:S.gcnt++,date:d,opp:o,type:t,recordedBy:S.role||'admin',status:'active'};
   S.games.push({...S.game});
+  S.downloadedGids.add(S.game.id);
   S.curPit=null;S.bases={b1:null,b2:null,b3:null};S.outs=0;save();closeModal();r();toast('vs '+o+' '+(t==='P'?'연습':'정식')+'경기 시작!');
   if(S.scriptUrl&&navigator.onLine){
     pushGamesOnly().then(function(res){if(res.ok&&res.pushed)console.log('game auto-pushed');});
@@ -3005,11 +3038,84 @@ async function testConn(){
     else{st.textContent='⚠ 응답 오류';st.style.color='#b45309';}
   }catch(e){st.textContent='✗ 연결 실패 - URL 확인';st.style.color='#991b1b';}
 }
+// ── API 어댑터 ─────────────────────────────────────────────
+// DB 전환 시 이 객체 내부만 교체. 앱 로직은 변경 불필요.
+const API={
+  _u:function(){return S.scriptUrl;},
+  _t:function(){return S.scriptToken?'&token='+encodeURIComponent(S.scriptToken):'';},
+  _tk:function(){return S.scriptToken||'';},
+  async sync(games,bat_log,pit_bf,pit_runs,deleted_gids){
+    var res=await fetch(this._u(),{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},
+      body:JSON.stringify({type:'sync',token:this._tk(),games:games,bat_log:bat_log,pit_bf:pit_bf,pit_runs:pit_runs,deleted_gids:deleted_gids})});
+    return res.json();
+  },
+  async fetchGames(){
+    var res=await fetch(this._u()+'?action=fetchGames'+this._t());
+    return res.json();
+  },
+  async fetchRecords(gids){
+    var res=await fetch(this._u()+'?action=fetchRecords&gids='+encodeURIComponent(gids.join(','))+this._t());
+    return res.json();
+  },
+  async fetchAll(){
+    var res=await fetch(this._u()+'?action=fetch'+this._t());
+    return res.json();
+  },
+  async saveRoster(roster){
+    var rp=encodeURIComponent(JSON.stringify(roster));
+    var res=await fetch(this._u()+'?action=saveRoster&data='+rp+this._t());
+    return res.json();
+  }
+};
+
+// 특정 경기들의 기록만 서버에서 가져와 로컬에 병합
+async function fetchRecordsByGids(gids){
+  if(!S.scriptUrl||!navigator.onLine||!gids||!gids.length)return{ok:false,reason:'offline or no gids'};
+  try{
+    var data=await API.fetchRecords(gids);
+    if(data.status!=='ok')return{ok:false,reason:data.message||'서버 오류'};
+    var gidSet=new Set(gids);
+    // 로컬 미동기화(편집/신규) 레코드 보존, 서버 레코드와 충돌 없이 병합
+    function mergeRecords(local,server){
+      var localForGids=local.filter(function(e){return gidSet.has(e.gid);});
+      var localUnsynced=localForGids.filter(function(e){return !S.syncedIds.has(e.id);});
+      var unsyncedIds=new Set(localUnsynced.map(function(e){return e.id;}));
+      return [
+        ...local.filter(function(e){return !gidSet.has(e.gid);}), // 무관한 경기 유지
+        ...localUnsynced, // 로컬 미동기화 레코드 유지
+        ...(server||[]).filter(function(e){return !unsyncedIds.has(e.id);}) // 서버 레코드 (로컬 편집본과 충돌 제외)
+      ];
+    }
+    S.blog=mergeRecords(S.blog,data.bat_log);
+    S.pit_bf=mergeRecords(S.pit_bf,data.pit_bf);
+    S.pit_runs=mergeRecords(S.pit_runs,data.pit_runs);
+    (data.bat_log||[]).forEach(function(e){S.syncedIds.add(e.id);});
+    (data.pit_bf||[]).forEach(function(e){S.syncedIds.add(e.id);});
+    (data.pit_runs||[]).forEach(function(e){S.syncedIds.add(e.id);});
+    gids.forEach(function(gid){S.downloadedGids.add(gid);});
+    save();
+    return{ok:true,count:(data.bat_log||[]).length+(data.pit_bf||[]).length+(data.pit_runs||[]).length};
+  }catch(e){console.error('fetchRecordsByGids',e);return{ok:false,reason:e.message};}
+}
+
+// 통계 탭: 미다운로드 경기 기록 자동 fetch
+async function checkAndLoadStats(){
+  if(!S.scriptUrl||!navigator.onLine||S.statsLoading)return;
+  var missing=S.games
+    .filter(function(g){return S.syncedIds.has('g_'+g.id)&&!S.downloadedGids.has(g.id);})
+    .map(function(g){return g.id;});
+  if(!missing.length)return;
+  S.statsLoading=true;renderCt();
+  var result=await fetchRecordsByGids(missing);
+  S.statsLoading=false;
+  if(S.tab===3)renderCt();
+  if(result.ok)toast('통계 기록 로드 완료 ('+missing.length+'경기)','ok');
+}
+
 async function fetchGamesOnly(){
   if(!S.scriptUrl||!navigator.onLine)return{ok:false,reason:'offline'};
   try{
-    const res=await fetch(S.scriptUrl+'?action=fetchGames'+(S.scriptToken?'&token='+encodeURIComponent(S.scriptToken):''));
-    const data=await res.json();
+    const data=await API.fetchGames();
     if(data.status!=='ok')return{ok:false,reason:data.message||'서버 오류'};
     const tombF=new Set(data.tombstone_gids||[]);
     if(tombF.size&&S.game&&tombF.has(S.game.id)){
@@ -3058,11 +3164,9 @@ async function pushGamesOnly(){
   const gP=S.games.filter(function(g){return !S.syncedIds.has('g_'+g.id);});
   if(!gP.length)return{ok:true,pushed:0};
   try{
-    const res=await fetch(S.scriptUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},
-      body:JSON.stringify({type:'sync',token:S.scriptToken||'',games:gP,bat_log:[],pit_bf:[],pit_runs:[]})});
-    const data=await res.json();
+    const data=await API.sync(gP,[],[],[],[]);
     if(data.status!=='ok')return{ok:false,reason:data.message||'서버 오류'};
-    gP.forEach(function(g){S.syncedIds.add('g_'+g.id);});
+    gP.forEach(function(g){S.syncedIds.add('g_'+g.id);S.downloadedGids.add(g.id);});
     save();
     return{ok:true,pushed:gP.length};
   }catch(e){console.error('pushGamesOnly',e);return{ok:false,reason:e.message};}
@@ -3078,9 +3182,7 @@ async function doSync(){
   S.syncing=true;r();
   try{
     if(bP.length||pfP.length||prP.length||gP.length||dG.length){
-      const res=await fetch(S.scriptUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},
-        body:JSON.stringify({type:'sync',token:S.scriptToken||'',games:gP,bat_log:bP,pit_bf:pfP,pit_runs:prP,deleted_gids:dG})});
-      const data=await res.json();
+      const data=await API.sync(gP,bP,pfP,prP,dG);
       if(data.status!=='ok')throw new Error(data.message||'서버 오류');
       // tombstone 적용: 진행 중인 경기는 자동 제외 후 나머지만 삭제
       const tomb=new Set(data.tombstone_gids||[]);
@@ -3098,17 +3200,15 @@ async function doSync(){
       // 서버에서 락으로 삭제 거부된 gid는 deletedGids에 유지 (경기 종료 후 재시도)
       const lockedSet=new Set(data.locked_gids||[]);
       if(lockedSet.size){toast('⚠ 진행 중인 경기('+lockedSet.size+'건)는 서버에서 삭제가 거부됐습니다','err');}
-      bP.forEach(e=>S.syncedIds.add(e.id));
-      pfP.forEach(e=>S.syncedIds.add(e.id));
-      prP.forEach(e=>S.syncedIds.add(e.id));
-      gP.forEach(g=>S.syncedIds.add('g_'+g.id));
+      bP.forEach(e=>{S.syncedIds.add(e.id);if(e.gid)S.downloadedGids.add(e.gid);});
+      pfP.forEach(e=>{S.syncedIds.add(e.id);if(e.gid)S.downloadedGids.add(e.gid);});
+      prP.forEach(e=>{S.syncedIds.add(e.id);if(e.gid)S.downloadedGids.add(e.gid);});
+      gP.forEach(g=>{S.syncedIds.add('g_'+g.id);S.downloadedGids.add(g.id);});
       // 락으로 거부된 gid는 삭제 대기열에 유지, 나머지는 제거
       S.deletedGids=(S.deletedGids||[]).filter(gid=>lockedSet.has(gid));
     }
     if(S.rosterDirty){
-      const rp=encodeURIComponent(JSON.stringify(ROSTER));
-      const rr=await fetch(S.scriptUrl+'?action=saveRoster&data='+rp+(S.scriptToken?'&token='+encodeURIComponent(S.scriptToken):''));
-      const rd=await rr.json();
+      const rd=await API.saveRoster(ROSTER);
       if(rd.status==='ok')S.rosterDirty=false;
     }
     S.lastSync=Date.now();save();
@@ -3122,8 +3222,7 @@ async function loadFromSheets(){
   if(!S.scriptUrl){toast('먼저 URL을 저장해주세요','err');return;}
   S.loading=true;r();
   try{
-    const res=await fetch(S.scriptUrl+'?action=fetch'+(S.scriptToken?'&token='+encodeURIComponent(S.scriptToken):''));
-    const data=await res.json();
+    const data=await API.fetchAll();
     if(data.status!=='ok')throw new Error(data.message||'오류');
 
     // 서버가 권위(source of truth): 서버 데이터로 교체
@@ -3151,9 +3250,10 @@ async function loadFromSheets(){
 
     if(data.roster&&data.roster.length>0){parseRosterSiblings(data.roster);ROSTER.splice(0,ROSTER.length,...data.roster);S.rosterDirty=false;}
 
-    // syncedIds 재구성: 서버에서 온 항목만 synced로 표시
+    // syncedIds + downloadedGids 재구성
     S.syncedIds=new Set();
-    (data.games||[]).forEach(g=>S.syncedIds.add('g_'+g.id));
+    S.downloadedGids=new Set();
+    (data.games||[]).forEach(g=>{S.syncedIds.add('g_'+g.id);S.downloadedGids.add(g.id);});
     (data.bat_log||[]).forEach(e=>S.syncedIds.add(e.id));
     (data.pit_bf||[]).forEach(e=>S.syncedIds.add(e.id));
     (data.pit_runs||[]).forEach(e=>S.syncedIds.add(e.id));
