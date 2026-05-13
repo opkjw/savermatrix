@@ -1204,6 +1204,7 @@ function rLog(){
   const be=S.blog.filter(e=>e.gid===selGid);
   const pbf=S.pit_bf.filter(e=>e.gid===selGid);
   const pr=S.pit_runs.filter(e=>e.gid===selGid);
+  const myHighlight=(S.role==='user')?Number(activeNo()):null;
 
   if(!be.length&&!pbf.length){
     h+='<div class="empty" style="padding:24px">이 경기의 기록이 없습니다.</div>';
@@ -1237,10 +1238,11 @@ function rLog(){
         if(e.sb>0)ex.push('도루');
         if(e.zone)ex.push('📍'+e.zone);
         var sy=S.syncedIds.has(e.id);
-        h+='<div class="logitem">'
+        var isMyChild=myHighlight&&Number(e.pno)===myHighlight;
+        h+='<div class="logitem" style="'+(isMyChild?'background:#EBF4FF;border-left:3px solid var(--navy);':'')+'"">'
           +'<div class="logbadge" style="background:'+oc.bg+';color:'+oc.fg+';font-size:10px">'+oc.l+'</div>'
           +'<div style="flex:1;min-width:0">'
-          +'<div class="logplayer">'+esc(e.pn)+' <span style="font-size:10px;color:'+(sy?'#15803d':'#f59e0b')+'">'+(sy?'✓':'●')+'</span></div>'
+          +'<div class="logplayer">'+esc(e.pn)+(isMyChild?' <span style="font-size:10px;background:var(--navy);color:#fff;padding:1px 5px;border-radius:3px;font-weight:700">★ 우리 아이</span>':'')+' <span style="font-size:10px;color:'+(sy?'#15803d':'#f59e0b')+'">'+(sy?'✓':'●')+'</span></div>'
           +'<div class="logdetail">'+(ex.length?ex.join(' · '):'—')+'</div>'
           +'</div>'
           +'<button onclick="showEditBatModal(\''+e.id+'\')" style="background:none;border:1px solid var(--bdr);border-radius:var(--r);padding:5px 8px;font-size:11px;color:var(--txt2);cursor:pointer;margin-right:4px;font-family:inherit">✏</button>'
@@ -1261,11 +1263,12 @@ function rLog(){
         entries.forEach(function(e){var s=paS(e.oc);ab+=s.ab;hits+=s.h;rbi+=(e.rbi||0);run+=(e.run||0);sb+=(e.sb||0);});
         var avg=ab>0?(hits/ab).toFixed(3).replace(/^0/,''):'.000';
         var isExp=!!(S.logExpanded&&S.logExpanded[String(pno)]);
-        h+='<div class="logitem" style="flex-direction:column;align-items:stretch;gap:0;padding:10px 12px">'
+        var isMyChild=myHighlight&&Number(pno)===myHighlight;
+        h+='<div class="logitem" style="flex-direction:column;align-items:stretch;gap:0;padding:10px 12px;'+(isMyChild?'background:#EBF4FF;border-left:3px solid var(--navy);':'')+'">'
           +'<div onclick="toggleLogPlayer('+pno+')" style="display:flex;align-items:center;gap:8px;cursor:pointer">'
           +'<div class="logbadge" style="background:var(--navy);color:#fff;font-size:11px">#'+pno+'</div>'
           +'<div style="flex:1;min-width:0">'
-          +'<div class="logplayer">'+esc(rp.name)+'</div>'
+          +'<div class="logplayer">'+esc(rp.name)+(isMyChild?' <span style="font-size:10px;background:var(--navy);color:#fff;padding:1px 5px;border-radius:3px;font-weight:700">★ 우리 아이</span>':'')+'</div>'
           +'<div class="logdetail">'+ab+'타수 '+hits+'안타 '+avg+(rbi?' · '+rbi+'타점':'')+(run?' · '+run+'득점':'')+(sb?' · '+sb+'도루':'')+'</div>'
           +'</div>'
           +'<span style="font-size:14px;color:var(--txt2);flex-shrink:0">'+(isExp?'▲':'▼')+'</span>'
