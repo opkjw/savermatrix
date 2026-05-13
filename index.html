@@ -902,8 +902,6 @@ function rExtras(){
   if(!p)return'';
   const showRbi=S.bo!=='SH';
   const isBIP=BIP_OC.includes(S.bo);
-  const zoneOF=['LF','LC','CF','RC','RF'];
-  const zoneIF=['3B','SS','2B','1B'];
   let h='<div class="shdr"><button class="back" onclick="undoRunnerAdv();S.bs=1;S.runnerDecisions={};S.pendingScores=[];r()">←</button>'
     +'<div style="flex:1"><div class="s-title">'+esc(p.name)+'</div><div class="s-sub">추가 기록 입력</div></div>'
     +'<span class="badge" style="background:'+oc.bg+';color:'+oc.fg+'">'+oc.l+'</span></div>'
@@ -919,34 +917,7 @@ function rExtras(){
       +'<button class="exbtn" onclick="adj(\'brbi\',1)">+</button>'
       +'</div></div></div>';
   }
-  h+='<div style="margin:0 12px 10px;background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r);padding:10px 14px">'
-    +'<div style="font-size:11px;color:var(--txt2);margin-bottom:8px;font-weight:600">⚾ 도루 수동 보정 <span style="font-weight:400">(베이스 현황 미사용 시)</span></div>'
-    +'<div style="display:flex;align-items:center;gap:10px">'
-    +'<span style="font-size:12px;color:var(--txt2);flex:1">도루 (SB)</span>'
-    +'<button class="exbtn" style="width:36px;height:36px" onclick="adj(\'bsb\',-1)">−</button>'
-    +'<span id="ev-bsb" style="font-size:18px;font-weight:700;color:var(--txt);min-width:24px;text-align:center">'+S.bsb+'</span>'
-    +'<button class="exbtn" style="width:36px;height:36px" onclick="adj(\'bsb\',1)">+</button>'
-    +'<span style="width:1px;height:20px;background:var(--bdr);margin:0 4px"></span>'
-    +'<span style="font-size:12px;color:var(--txt2);flex:1">도루실패 (CS)</span>'
-    +'<button class="exbtn" style="width:36px;height:36px" onclick="adj(\'bcs\',-1)">−</button>'
-    +'<span id="ev-bcs" style="font-size:18px;font-weight:700;color:var(--txt);min-width:24px;text-align:center">'+S.bcs+'</span>'
-    +'<button class="exbtn" style="width:36px;height:36px" onclick="adj(\'bcs\',1)">+</button>'
-    +'</div></div>';
-  if(isBIP){
-    h+='<div style="padding:4px 12px 8px;background:'+(S.bzone?'var(--card)':'#FFF8F0')+';border:1.5px solid '+(S.bzone?'var(--bdr)':'#F59E0B')+';border-radius:var(--r);margin:0 12px 10px">'
-      +'<div style="font-size:11px;font-weight:600;color:'+(S.bzone?'var(--txt2)':'#D97706')+';margin-bottom:6px">🎯 타구 방향 <span style="font-size:10px;background:'+(S.bzone?'#E5F3E8':'#FEF3C7')+';color:'+(S.bzone?'#15803D':'#92400E')+';padding:1px 5px;border-radius:3px;font-weight:700">'+(S.bzone?'✓ 선택됨':'필수')+'</span></div>'
-      +'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:5px">';
-    zoneOF.forEach(z=>{
-      const sel=S.bzone===z;
-      h+='<button onclick="S.bzone=\''+z+'\';renderCt()" style="padding:9px 2px;border:'+(sel?'2px solid var(--navy)':'1px solid var(--bdr)')+';border-radius:var(--r);background:'+(sel?'#EBF0FB':'var(--card)')+';color:'+(sel?'var(--navy)':'var(--txt2)')+';font-size:12px;font-weight:'+(sel?'700':'400')+';cursor:pointer;font-family:inherit">'+z+'</button>';
-    });
-    h+='</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px">';
-    zoneIF.forEach(z=>{
-      const sel=S.bzone===z;
-      h+='<button onclick="S.bzone=\''+z+'\';renderCt()" style="padding:9px 2px;border:'+(sel?'2px solid var(--red)':'1px solid var(--bdr)')+';border-radius:var(--r);background:'+(sel?'#FDEDEC':'var(--card)')+';color:'+(sel?'var(--red)':'var(--txt2)')+';font-size:12px;font-weight:'+(sel?'700':'400')+';cursor:pointer;font-family:inherit">'+z+'</button>';
-    });
-    h+='</div></div>';
-  }
+  if(isBIP){h+=rZoneInput(S.bzone,'selectBatZone');}
   const canSave=!isBIP||S.bzone;
   h+='<div class="savewrap"><button class="savebtn" onclick="saveBat()" style="opacity:'+(canSave?'1':'0.4')+';pointer-events:'+(canSave?'auto':'none')+'">✓ 기록 저장</button>'
     +(isBIP&&!S.bzone?'<div style="font-size:11px;color:#D97706;text-align:center;margin-top:6px">타구 방향을 선택해야 저장할 수 있습니다</div>':'')
@@ -1678,6 +1649,78 @@ function rStats(){
 }
 
 // ── 스프레이 차트 ─────────────────────────────────────────
+// ── 인터랙티브 타구 방향 입력 다이어그램 ──────────────────
+function selectBatZone(z){S.bzone=z;renderCt();}
+function selectEditZone(z){editState.zone=z;renderEditModal();}
+function rZoneInput(currentZone,cb){
+  var cx=175,cy=200,rIF=80,rOF=162,rHP=8;
+  function pxy(deg,r){var rd=deg*Math.PI/180;return{x:(cx+r*Math.sin(rd)).toFixed(1),y:(cy-r*Math.cos(rd)).toFixed(1)};}
+  function arc(a1,a2,r1,r2){
+    var p1o=pxy(a1,r2),p2o=pxy(a2,r2),p1i=pxy(a1,r1),p2i=pxy(a2,r1);
+    return 'M '+p1o.x+' '+p1o.y+' A '+r2+' '+r2+' 0 0 1 '+p2o.x+' '+p2o.y+' L '+p2i.x+' '+p2i.y+' A '+r1+' '+r1+' 0 0 0 '+p1i.x+' '+p1i.y+' Z';
+  }
+  var IF_Z=[
+    {z:'3B',l:'3루',a1:-45,a2:-22,c:'#e74c3c'},
+    {z:'SS',l:'유격',a1:-22,a2:1, c:'#e67e22'},
+    {z:'2B',l:'2루',a1:1,  a2:24, c:'#2ecc71'},
+    {z:'1B',l:'1루',a1:24, a2:45, c:'#1abc9c'},
+  ];
+  var OF_Z=[
+    {z:'LF',l:'좌익',a1:-45,a2:-27,c:'#e74c3c'},
+    {z:'LC',l:'좌중',a1:-27,a2:-9, c:'#e67e22'},
+    {z:'CF',l:'중앙',a1:-9, a2:9,  c:'#f1c40f'},
+    {z:'RC',l:'우중',a1:9,  a2:27, c:'#2ecc71'},
+    {z:'RF',l:'우익',a1:27, a2:45, c:'#1abc9c'},
+  ];
+  var h='';
+  // 잔디 배경
+  var bg1=pxy(-45,rOF),bg2=pxy(45,rOF);
+  h+='<path d="M '+cx+' '+cy+' L '+bg1.x+' '+bg1.y+' A '+rOF+' '+rOF+' 0 0 1 '+bg2.x+' '+bg2.y+' Z" fill="#1e4d2b"/>';
+  var if1=pxy(-45,rIF),if2=pxy(45,rIF);
+  h+='<path d="M '+cx+' '+cy+' L '+if1.x+' '+if1.y+' A '+rIF+' '+rIF+' 0 0 1 '+if2.x+' '+if2.y+' Z" fill="#2d6a3f"/>';
+  // 외야 구역
+  OF_Z.forEach(function(z){
+    var sel=currentZone===z.z;
+    h+='<path d="'+arc(z.a1,z.a2,rIF,rOF)+'" fill="'+(sel?z.c:'rgba(255,255,255,0.05)')+'" stroke="rgba(0,0,0,0.25)" stroke-width="1" onclick="'+cb+'(&apos;'+z.z+'&apos;)" style="cursor:pointer"/>';
+    var mid=(z.a1+z.a2)/2,dist=rIF+(rOF-rIF)*0.52;
+    var lx=(cx+dist*Math.sin(mid*Math.PI/180)).toFixed(1),ly=(cy-dist*Math.cos(mid*Math.PI/180)).toFixed(1);
+    h+='<text x="'+lx+'" y="'+ly+'" text-anchor="middle" dominant-baseline="middle" fill="'+(sel?'#fff':'rgba(255,255,255,0.55)')+'" font-size="11" font-weight="'+(sel?'800':'500')+'" pointer-events="none">'+z.l+'</text>';
+  });
+  // 내야 구역
+  IF_Z.forEach(function(z){
+    var sel=currentZone===z.z;
+    h+='<path d="'+arc(z.a1,z.a2,rHP,rIF)+'" fill="'+(sel?z.c:'rgba(255,255,255,0.10)')+'" stroke="rgba(0,0,0,0.25)" stroke-width="1" onclick="'+cb+'(&apos;'+z.z+'&apos;)" style="cursor:pointer"/>';
+    var mid=(z.a1+z.a2)/2,dist=rHP+(rIF-rHP)*0.54;
+    var lx=(cx+dist*Math.sin(mid*Math.PI/180)).toFixed(1),ly=(cy-dist*Math.cos(mid*Math.PI/180)).toFixed(1);
+    h+='<text x="'+lx+'" y="'+ly+'" text-anchor="middle" dominant-baseline="middle" fill="'+(sel?'#fff':'rgba(255,255,255,0.65)')+'" font-size="10" font-weight="'+(sel?'700':'400')+'" pointer-events="none">'+z.l+'</text>';
+  });
+  // 경계선: 내야 구역 구분
+  [-22,1,24].forEach(function(deg){
+    var ep=pxy(deg,rIF);h+='<line x1="'+cx+'" y1="'+cy+'" x2="'+ep.x+'" y2="'+ep.y+'" stroke="rgba(0,0,0,0.3)" stroke-width="1"/>';
+  });
+  // 경계선: 외야 구역 구분
+  [-27,-9,9,27].forEach(function(deg){
+    var pi=pxy(deg,rIF),po=pxy(deg,rOF);h+='<line x1="'+pi.x+'" y1="'+pi.y+'" x2="'+po.x+'" y2="'+po.y+'" stroke="rgba(0,0,0,0.25)" stroke-width="1"/>';
+  });
+  // 파울라인
+  var fl=pxy(-45,rOF),fr=pxy(45,rOF);
+  h+='<line x1="'+cx+'" y1="'+cy+'" x2="'+fl.x+'" y2="'+fl.y+'" stroke="rgba(255,255,255,0.6)" stroke-width="2"/>';
+  h+='<line x1="'+cx+'" y1="'+cy+'" x2="'+fr.x+'" y2="'+fr.y+'" stroke="rgba(255,255,255,0.6)" stroke-width="2"/>';
+  // 내/외야 경계 호
+  h+='<path d="M '+if1.x+' '+if1.y+' A '+rIF+' '+rIF+' 0 0 1 '+if2.x+' '+if2.y+'" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="1.5"/>';
+  // 외야 펜스 호
+  h+='<path d="M '+bg1.x+' '+bg1.y+' A '+rOF+' '+rOF+' 0 0 1 '+bg2.x+' '+bg2.y+'" fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="2"/>';
+  // 홈플레이트
+  h+='<polygon points="'+cx+','+(cy-8)+' '+(cx+6)+','+(cy+1)+' '+(cx+3)+','+(cy+7)+' '+(cx-3)+','+(cy+7)+' '+(cx-6)+','+(cy+1)+'" fill="white" opacity=".9"/>';
+  // 안내 텍스트
+  var hint=currentZone?('✓ '+currentZone+' 선택됨'):'타구 방향을 터치하세요';
+  var hintColor=currentZone?'#86efac':'rgba(255,255,255,0.5)';
+  h+='<text x="175" y="13" text-anchor="middle" fill="'+hintColor+'" font-size="11" font-weight="'+(currentZone?'700':'400')+'">'+hint+'</text>';
+  return '<div style="margin:0 12px 10px;border-radius:10px;overflow:hidden">'
+    +'<svg viewBox="0 0 350 215" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block;touch-action:manipulation">'+h+'</svg>'
+    +'</div>';
+}
+
 function rSprayChart(pno){
   var pno2=Number(pno);
   var roster=ROSTER.find(function(x){return Number(x.no)===pno2;});
@@ -2591,20 +2634,7 @@ function renderEditModal(){
     h+='<div class="em-card"><div class="em-card-lbl">득점</div><div class="em-card-val" id="em-run">'+es.run+'</div><div class="em-card-btns"><button class="em-card-btn" onclick="editState.run=Math.max(0,editState.run-1);document.getElementById(\'em-run\').textContent=editState.run">−</button><button class="em-card-btn" onclick="editState.run++;document.getElementById(\'em-run\').textContent=editState.run">+</button></div></div>';
     h+='<div class="em-card"><div class="em-card-lbl">도루</div><div class="em-card-val" id="em-sb">'+es.sb+'</div><div class="em-card-btns"><button class="em-card-btn" onclick="editState.sb=Math.max(0,editState.sb-1);document.getElementById(\'em-sb\').textContent=editState.sb">−</button><button class="em-card-btn" onclick="editState.sb++;document.getElementById(\'em-sb\').textContent=editState.sb">+</button></div></div>';
     h+='</div>';
-    if(isBIP){
-      h+='<div class="em-lbl">타구 방향 <span style="font-size:10px;background:'+(es.zone?'#E5F3E8':'#FEF3C7')+';color:'+(es.zone?'#15803D':'#92400E')+';padding:1px 5px;border-radius:3px;font-weight:700">'+(es.zone?'✓ 선택됨':'필수')+'</span></div>'
-        +'<div class="em-zone-of">';
-      ['LF','LC','CF','RC','RF'].forEach(z=>{
-        const sel=es.zone===z;
-        h+='<button class="em-zbtn" onclick="editState.zone=\''+z+'\';renderEditModal()" style="border:'+(sel?'2px solid var(--navy)':'1px solid var(--bdr)')+';background:'+(sel?'#EBF0FB':'var(--bg2)')+';color:'+(sel?'var(--navy)':'var(--txt2)')+';font-weight:'+(sel?'700':'400')+'">'+z+'</button>';
-      });
-      h+='</div><div class="em-zone-if">';
-      ['3B','SS','2B','1B'].forEach(z=>{
-        const sel=es.zone===z;
-        h+='<button class="em-zbtn" onclick="editState.zone=\''+z+'\';renderEditModal()" style="border:'+(sel?'2px solid var(--red)':'1px solid var(--bdr)')+';background:'+(sel?'#FDEDEC':'var(--bg2)')+';color:'+(sel?'var(--red)':'var(--txt2)')+';font-weight:'+(sel?'700':'400')+'">'+z+'</button>';
-      });
-      h+='</div>';
-    }
+    if(isBIP){h+=rZoneInput(es.zone,'selectEditZone');}
   }
   h+='<div class="em-btns"><button class="em-cancel" onclick="closeModal()">취소</button>'
     +(isPitRun?'<button onclick="delPitRun(\''+es.id+'\');closeModal()" style="flex:1;padding:14px;border:1px solid #fca5a5;border-radius:var(--r);background:#fff;color:#dc2626;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit">🗑 삭제</button>':'')
