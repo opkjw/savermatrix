@@ -261,6 +261,8 @@ const ALL_OC=[...OC_HIT,...OC_OB,...OC_OUT];
 const BIP_OC=["1B","2B","3B","HR","GO","FO","DP","SF","FC","E"];
 const UID=()=>(self.crypto&&self.crypto.randomUUID)?self.crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2,11);
 const DEVICE_ID=(function(){let id=localStorage.getItem('bsbl_did');if(!id){id=UID();localStorage.setItem('bsbl_did',id);}return id;})();
+const MASTER_REGISTRY_ID='AKfycbzZ31icu_nge7qVmGPWJ7S59lPOksC3Safxeus5cSwuVXej7lkBeuvFssM7UF_6NWhwMA';
+function masterRegUrl(){return'https://script.google.com/macros/s/'+MASTER_REGISTRY_ID+'/exec';}
 
 function ocOuts(o){if(o==='DP')return 2;if(['K','GO','FO','SF','SH','FC'].includes(o))return 1;return 0;}
 function ocInfo(id){return ALL_OC.find(x=>x.id===id)||{l:id,bg:"#e5e7eb",fg:"#374151"};}
@@ -553,13 +555,8 @@ function doLogout(){
 async function checkResetLink(){
   var params=new URLSearchParams(location.search);
   var token=(params.get('reset')||'').trim().toUpperCase();
-  var src=params.get('src')||'';
-  if(!token||!src)return;
-  // URL 파라미터를 즉시 제거 (뒤로가기로 재사용 방지)
+  if(!token)return;
   history.replaceState(null,'',location.pathname);
-  var masterUrl='';
-  try{masterUrl=atob(decodeURIComponent(src));}catch(e){toast('링크 형식 오류','err');return;}
-  // 검증 중 안내
   var ol=document.getElementById('setup-overlay');
   if(ol){
     ol.style.display='flex';
@@ -570,11 +567,10 @@ async function checkResetLink(){
       +'</div>';
   }
   try{
-    var res=await fetch(masterUrl+'?action=validateToken&token='+encodeURIComponent(token));
+    var res=await fetch(masterRegUrl()+'?action=validateToken&token='+encodeURIComponent(token));
     var data=await res.json();
     if(data.status!=='ok'){toast(data.message||'유효하지 않은 링크입니다','err');if(ol)ol.style.display='none';return;}
-    // 토큰 유효 → 팀 잠금 해제, masterUrl 저장, 셋업 재시작
-    S.masterUrl=masterUrl;
+    // 토큰 유효 → 팀 잠금 해제, 셋업 재시작
     S.teamLocked=false;
     S.setupDone=false;
     S.setupStep=1;
@@ -593,12 +589,31 @@ function selectTeamFromRegistry(name,url){
   renderSetup();
 }
 
+function _showManualUrlInput(){
+  var ol=document.getElementById('setup-overlay');
+  if(!ol)return;
+  ol.innerHTML='<div class="su-progress"></div>'
+    +'<div class="su-body">'
+    +'<div class="su-icon">🔗</div>'
+    +'<div class="su-title">직접 URL 입력</div>'
+    +'<div class="su-desc" style="margin-bottom:12px">감독·기록자 전용<br>구글 시트 앱스크립트 URL을 입력하세요</div>'
+    +'<div class="su-field">'
+    +'<input class="su-input" id="su-url" type="url" placeholder="https://script.google.com/macros/s/.../exec" value="'+esc(S.scriptUrl)+'" autocomplete="off" spellcheck="false">'
+    +'</div>'
+    +'<div class="su-connst" id="su-connst"></div>'
+    +'</div>'
+    +'<div class="su-actions">'
+    +'<button class="su-next" id="su-fetch-btn" onclick="saveSetupUrl()">연결 및 불러오기</button>'
+    +'<button class="su-skip" onclick="renderSetup()">← 팀 선택으로</button>'
+    +'</div>';
+  setTimeout(function(){var el=document.getElementById('su-url');if(el)el.focus();},100);
+}
 var _registryTeams=[];
 async function _loadRegistryTeams(){
   var el=document.getElementById('su-team-registry');
   if(!el)return;
   try{
-    var res=await fetch(S.masterUrl+'?action=teams');
+    var res=await fetch(masterRegUrl()+'?action=teams');
     var data=await res.json();
     if(data.status!=='ok')throw new Error(data.message||'오류');
     _registryTeams=data.teams||[];
@@ -641,33 +656,15 @@ function renderSetup(){
       +'<div class="su-desc">선수별 타석·투구 기록부터<br>세이버매트릭스 통계까지<br>한 번에 관리하세요</div>';
     actions='<button class="su-next" onclick="S.setupStep=1;renderSetup()">시작하기</button>';
   } else if(step===1){
-    if(S.masterUrl){
-      // 레지스트리에서 팀 목록 표시
-      body='<div class="su-icon">🏟️</div>'
-        +'<div class="su-title">팀을 선택해주세요</div>'
-        +'<div class="su-desc">소속 팀을 선택하면<br>자동으로 연결됩니다</div>'
-        +'<div id="su-team-registry" style="width:100%;margin-top:8px">'
-        +'<div style="text-align:center;color:rgba(255,255,255,.5);font-size:13px;padding:20px">팀 목록 불러오는 중...</div>'
-        +'</div>';
-      actions='<div id="su-registry-actions"></div>';
-      // 비동기로 팀 목록 fetch
-      setTimeout(function(){_loadRegistryTeams();},100);
-    } else {
-      // 마스터 URL 없음 — 관리자 직접 입력 or 초대 링크 안내
-      body='<div class="su-icon">🔗</div>'
-        +'<div class="su-title">팀 연결</div>'
-        +'<div class="su-desc" style="margin-bottom:12px">관리자에게 초대 링크를 요청하거나<br>직접 URL을 입력하세요</div>'
-        +'<div style="background:rgba(255,255,255,.08);border-radius:12px;padding:14px 16px;margin-bottom:14px;text-align:center">'
-        +'<div style="font-size:13px;color:rgba(255,255,255,.6);margin-bottom:4px">초대 링크가 있다면</div>'
-        +'<div style="font-size:12px;color:rgba(255,255,255,.4)">관리자에게 받은 링크를 열면<br>자동으로 팀이 연결됩니다</div>'
-        +'</div>'
-        +'<div class="su-field">'
-        +'<div class="su-lbl">직접 입력 (감독/기록자용)</div>'
-        +'<input class="su-input" id="su-url" type="url" placeholder="https://script.google.com/macros/s/.../exec" value="'+esc(S.scriptUrl)+'" autocomplete="off" spellcheck="false">'
-        +'</div>'
-        +'<div class="su-connst" id="su-connst"></div>';
-      actions='<button class="su-next" id="su-fetch-btn" onclick="saveSetupUrl()">연결 및 불러오기</button>';
-    }
+    // 항상 레지스트리에서 팀 목록 표시
+    body='<div class="su-icon">🏟️</div>'
+      +'<div class="su-title">팀을 선택해주세요</div>'
+      +'<div class="su-desc">소속 팀을 선택하면<br>자동으로 연결됩니다</div>'
+      +'<div id="su-team-registry" style="width:100%;margin-top:8px">'
+      +'<div style="text-align:center;color:rgba(255,255,255,.7);font-size:13px;padding:20px">팀 목록 불러오는 중...</div>'
+      +'</div>';
+    actions='<button class="su-skip" onclick="S.setupStep=1;_showManualUrlInput()">직접 URL 입력 (감독용)</button>';
+    setTimeout(function(){_loadRegistryTeams();},100);
   } else if(step===2){
     // 학교/팀명 입력 (목록 찾기 또는 직접 입력)
     body='<div class="su-icon">🏫</div>'
@@ -715,7 +712,6 @@ function renderSetup(){
     actions='<button class="su-next" onclick="finishSetup(false)">앱 시작하기 →</button>';
   }
   ol.innerHTML=dots+'<div class="su-body">'+body+'</div>'+'<div class="su-actions">'+actions+'</div>';
-  if(step===1)setTimeout(function(){var el=document.getElementById('su-url');if(el)el.focus();},100);
   if(step===2)setTimeout(function(){var el=document.getElementById('su-school');if(el)el.focus();},100);
 }
 var _teamSearchList=[];
@@ -817,7 +813,7 @@ function finishSetup(asAdmin){
     else{S.role=null;sessionStorage.removeItem('bb_role');}
   } else {
     S.role='user';sessionStorage.setItem('bb_role','user');
-    if(S.masterUrl)S.teamLocked=true;
+    S.teamLocked=true;
   }
   save();
   document.getElementById('setup-overlay').style.display='none';
