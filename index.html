@@ -1,3 +1,4 @@
+<!-- version: 2026-05-15 -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -674,8 +675,12 @@ function renderSetup(){
     +'</div>';
   var body='',actions='';
   if(step===0){
-    body='<div class="su-icon">⚾</div>'
-      +'<div class="su-title">우리 팀 야구 기록,<br>쉽고 스마트하게</div>'
+    body='<div style="animation:suPop .4s cubic-bezier(.34,1.56,.64,1);margin-bottom:28px;text-align:center">'
+      +'<div style="font-size:56px;line-height:1">⚾</div>'
+      +'<div style="font-size:46px;font-weight:900;color:#fff;letter-spacing:-2px;line-height:1;margin-top:14px">모야모야</div>'
+      +'<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.38);letter-spacing:.22em;margin-top:8px;text-transform:uppercase">M O Y A M O Y A</div>'
+      +'</div>'
+      +'<div class="su-title" style="font-size:22px">우리 팀 야구 기록,<br>쉽고 스마트하게</div>'
       +'<div class="su-desc">선수별 타석·투구 기록부터<br>세이버매트릭스 통계까지<br>한 번에 관리하세요</div>';
     actions='<button class="su-next" onclick="S.setupStep=1;renderSetup()">시작하기</button>';
   } else if(step===1){
