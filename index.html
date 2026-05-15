@@ -582,6 +582,7 @@ async function checkResetLink(){
 // 팀 선택 완료 (step 1 → step 2)
 function selectTeamFromRegistry(name,url){
   S.teamName=name;
+  S.schoolName=name;
   S.scriptUrl=url;
   S.teamLocked=false; // 셋업 완료 시 finishSetup에서 true로
   S.setupStep=2;
@@ -621,16 +622,30 @@ async function _loadRegistryTeams(){
       el.innerHTML='<div style="text-align:center;color:rgba(255,255,255,.7);font-size:13px;padding:20px">등록된 팀이 없습니다</div>';
       return;
     }
-    var html='<div style="max-height:240px;overflow-y:auto;border-radius:10px">';
-    _registryTeams.forEach(function(t,i){
-      html+='<button onclick="_selectRegistryTeam('+i+')" style="display:block;width:100%;text-align:left;padding:14px;min-height:44px;background:rgba(255,255,255,.08);border:none;border-bottom:1px solid rgba(255,255,255,.07);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;word-break:keep-all">'+esc(t.name)+'</button>';
-    });
-    html+='</div>';
-    el.innerHTML=html;
+    _renderRegistryTeamList('');
   }catch(e){
     var el2=document.getElementById('su-team-registry');
     if(el2)el2.innerHTML='<div style="text-align:center;color:#fca5a5;font-size:13px;padding:20px">팀 목록 불러오기 실패</div>';
   }
+}
+function _renderRegistryTeamList(q){
+  var el=document.getElementById('su-team-registry');
+  if(!el)return;
+  var filtered=q?_registryTeams.filter(function(t){return t.name.toLowerCase().indexOf(q.toLowerCase())>=0;}):_registryTeams.slice();
+  var html='<input type="text" value="'+esc(q)+'" placeholder="팀명 검색..." oninput="_renderRegistryTeamList(this.value)" style="width:100%;box-sizing:border-box;padding:11px 14px;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.25);border-radius:var(--r);color:#fff;font-size:14px;font-family:inherit;outline:none;margin-bottom:8px">'
+    +'<div style="max-height:220px;overflow-y:auto;border-radius:10px">';
+  if(!filtered.length){
+    html+='<div style="text-align:center;color:rgba(255,255,255,.6);font-size:13px;padding:16px">검색 결과가 없습니다</div>';
+  } else {
+    filtered.forEach(function(t){
+      var idx=_registryTeams.indexOf(t);
+      html+='<button onclick="_selectRegistryTeam('+idx+')" style="display:block;width:100%;text-align:left;padding:14px;min-height:44px;background:rgba(255,255,255,.08);border:none;border-bottom:1px solid rgba(255,255,255,.07);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;word-break:keep-all">'+esc(t.name)+'</button>';
+    });
+  }
+  html+='</div>';
+  el.innerHTML=html;
+  var inp=el.querySelector('input');
+  if(inp&&q){inp.focus();inp.setSelectionRange(q.length,q.length);}
 }
 function _selectRegistryTeam(i){
   var t=_registryTeams[i];
@@ -659,24 +674,20 @@ function renderSetup(){
     // 항상 레지스트리에서 팀 목록 표시
     body='<div class="su-icon">🏟️</div>'
       +'<div class="su-title">팀을 선택해주세요</div>'
-      +'<div class="su-desc">소속 팀을 선택하면<br>자동으로 연결됩니다</div>'
+      +'<div class="su-desc">팀명을 검색해서 선택하세요</div>'
       +'<div id="su-team-registry" style="width:100%;margin-top:8px">'
       +'<div style="text-align:center;color:rgba(255,255,255,.7);font-size:13px;padding:20px">팀 목록 불러오는 중...</div>'
       +'</div>';
-    actions='<button class="su-skip" onclick="S.setupStep=1;_showManualUrlInput()">직접 URL 입력 (감독용)</button>';
+    actions='';
     setTimeout(function(){_loadRegistryTeams();},100);
   } else if(step===2){
-    // 학교/팀명 입력 (목록 찾기 또는 직접 입력)
+    // 팀명 확인/수정
     body='<div class="su-icon">🏫</div>'
-      +'<div class="su-title">우리 팀 이름을<br>알려주세요</div>'
-      +'<div class="su-desc">목록에서 선택하거나<br>직접 입력해주세요</div>'
+      +'<div class="su-title">팀 이름을<br>확인해주세요</div>'
+      +'<div class="su-desc">변경이 필요하면 수정하세요</div>'
       +'<div class="su-field">'
       +'<div class="su-lbl">학교 / 팀명</div>'
-      +'<div style="display:flex;gap:8px;align-items:stretch">'
-      +'<input class="su-input" id="su-school" type="text" placeholder="직접 입력 또는 아래 찾기" value="'+esc(S.schoolName)+'" maxlength="30" autocomplete="off" style="flex:1;margin-bottom:0">'
-      +'<button onclick="searchTeams()" style="flex-shrink:0;padding:0 16px;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);border-radius:var(--r);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap">🔍 찾기</button>'
-      +'</div>'
-      +'<div id="su-team-list" style="margin-top:6px"></div>'
+      +'<input class="su-input" id="su-school" type="text" placeholder="예: 서울초등학교" value="'+esc(S.schoolName)+'" maxlength="30" autocomplete="off">'
       +'</div>'
       +'<div class="su-connst" id="su-school-st"></div>';
     actions='<button class="su-next" onclick="saveSetupSchool()">다음</button>';
