@@ -622,7 +622,7 @@ async function _loadRegistryTeams(){
       el.innerHTML='<div style="text-align:center;color:rgba(255,255,255,.7);font-size:13px;padding:20px">등록된 팀이 없습니다</div>';
       return;
     }
-    _renderRegistryTeamList('');
+    _renderRegistryTeamList(null);
   }catch(e){
     var el2=document.getElementById('su-team-registry');
     if(el2)el2.innerHTML='<div style="text-align:center;color:#fca5a5;font-size:13px;padding:20px">팀 목록 불러오기 실패</div>';
@@ -631,21 +631,29 @@ async function _loadRegistryTeams(){
 function _renderRegistryTeamList(q){
   var el=document.getElementById('su-team-registry');
   if(!el)return;
-  var filtered=q?_registryTeams.filter(function(t){return t.name.toLowerCase().indexOf(q.toLowerCase())>=0;}):_registryTeams.slice();
-  var html='<input type="text" value="'+esc(q)+'" placeholder="팀명 검색..." oninput="_renderRegistryTeamList(this.value)" style="width:100%;box-sizing:border-box;padding:11px 14px;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.25);border-radius:var(--r);color:#fff;font-size:14px;font-family:inherit;outline:none;margin-bottom:8px">'
-    +'<div style="max-height:220px;overflow-y:auto;border-radius:10px">';
-  if(!filtered.length){
-    html+='<div style="text-align:center;color:rgba(255,255,255,.6);font-size:13px;padding:16px">검색 결과가 없습니다</div>';
+  var searchHtml='<div style="display:flex;gap:8px;align-items:center">'
+    +'<input id="reg-search" type="text" value="'+(q!=null?esc(q):'')+'" placeholder="팀명을 입력하세요" onkeydown="if(event.key===&apos;Enter&apos;)_renderRegistryTeamList(document.getElementById(&apos;reg-search&apos;).value)" style="flex:1;box-sizing:border-box;padding:11px 14px;background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.25);border-radius:var(--r);color:#fff;font-size:14px;font-family:inherit;outline:none">'
+    +'<button onclick="_renderRegistryTeamList(document.getElementById(&apos;reg-search&apos;).value)" style="flex-shrink:0;padding:11px 16px;background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.3);border-radius:var(--r);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">🔍 검색</button>'
+    +'</div>';
+  var listHtml='';
+  if(q===null){
+    listHtml='<div style="text-align:center;color:rgba(255,255,255,.5);font-size:13px;padding:16px">팀명을 입력 후 검색하세요</div>';
   } else {
-    filtered.forEach(function(t){
-      var idx=_registryTeams.indexOf(t);
-      html+='<button onclick="_selectRegistryTeam('+idx+')" style="display:block;width:100%;text-align:left;padding:14px;min-height:44px;background:rgba(255,255,255,.08);border:none;border-bottom:1px solid rgba(255,255,255,.07);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;word-break:keep-all">'+esc(t.name)+'</button>';
-    });
+    var filtered=_registryTeams.filter(function(t){return t.name.toLowerCase().indexOf(q.toLowerCase())>=0;});
+    if(!filtered.length){
+      listHtml='<div style="text-align:center;color:rgba(255,255,255,.6);font-size:13px;padding:16px">검색 결과가 없습니다</div>';
+    } else {
+      listHtml='<div style="max-height:220px;overflow-y:auto;border-radius:10px;margin-top:8px">';
+      filtered.forEach(function(t){
+        var idx=_registryTeams.indexOf(t);
+        listHtml+='<button onclick="_selectRegistryTeam('+idx+')" style="display:block;width:100%;text-align:left;padding:14px;min-height:44px;background:rgba(255,255,255,.08);border:none;border-bottom:1px solid rgba(255,255,255,.07);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;word-break:keep-all">'+esc(t.name)+'</button>';
+      });
+      listHtml+='</div>';
+    }
   }
-  html+='</div>';
-  el.innerHTML=html;
-  var inp=el.querySelector('input');
-  if(inp&&q){inp.focus();inp.setSelectionRange(q.length,q.length);}
+  el.innerHTML=searchHtml+listHtml;
+  var inp=document.getElementById('reg-search');
+  if(inp){inp.focus();if(q)inp.setSelectionRange(q.length,q.length);}
 }
 function _selectRegistryTeam(i){
   var t=_registryTeams[i];
