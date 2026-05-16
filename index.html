@@ -729,20 +729,19 @@ function renderSetup(){
     actions='<button class="su-next" onclick="S.setupStep=4;save();renderSetup()">학부모 모드로 시작</button>'
       +(S.myPlayer==null?'<button class="su-skip" onclick="finishSetup(true)">코치 / 감독 모드로 시작</button>':'');
   } else {
-    // 완료
-    var myP=S.myPlayer!=null?ROSTER.find(function(p){return p.no===S.myPlayer;}):null;
-    body='<div class="su-icon">🎉</div>'
-      +'<div class="su-title">모든 준비가<br>완료됐습니다!</div>'
-      +'<div class="su-desc">학부모 모드로 시작합니다</div>'
-      +'<div class="su-summary">'
-      +(myP?'👦 '+esc(myP.name)+' (#'+myP.no+')<br>':'')
-      +(S.schoolName?'🏫 '+esc(S.schoolName)+'<br>':'')
-      +(S.scriptUrl?'☁ 클라우드 연동 완료':'')
-      +'</div>';
-    actions='<button class="su-next" onclick="finishSetup(false)">앱 시작하기 →</button>';
+    // Step 4: PIN 입력
+    body='<div class="su-icon">🔐</div>'
+      +'<div class="su-title">PIN 입력</div>'
+      +'<div class="su-desc" style="margin-bottom:20px">감독/코치에게 받은<br>학부모 PIN을 입력해주세요</div>'
+      +'<div class="su-field">'
+      +'<input class="su-input" id="su-pin" type="password" inputmode="numeric" maxlength="8" placeholder="PIN 입력" autocomplete="off" onkeydown="if(event.key===&apos;Enter&apos;)doSetupLogin()">'
+      +'</div>'
+      +'<div class="su-connst" id="su-pin-st"></div>';
+    actions='<button class="su-next" id="su-pin-btn" onclick="doSetupLogin()">확인</button>';
   }
   ol.innerHTML=dots+'<div class="su-body">'+body+'</div>'+'<div class="su-actions">'+actions+'</div>';
   if(step===2)setTimeout(function(){var el=document.getElementById('su-school');if(el)el.focus();},100);
+  if(step===4)setTimeout(function(){var el=document.getElementById('su-pin');if(el)el.focus();},100);
 }
 var _teamSearchList=[];
 var _teamFiltered=[];
@@ -879,13 +878,40 @@ async function saveSetupUrl(){
     if(btn){btn.disabled=false;btn.textContent='연결 및 불러오기';}
   }
 }
+async function doSetupLogin(){
+  var el=document.getElementById('su-pin');
+  var pin=el?el.value.trim():'';
+  var st=document.getElementById('su-pin-st');
+  var btn=document.getElementById('su-pin-btn');
+  if(!pin){if(st){st.textContent='⚠ PIN을 입력해주세요.';st.style.color='#fca5a5';}return;}
+  if(!S.scriptUrl){finishSetup(false);return;}
+  if(st){st.textContent='확인 중...';st.style.color='rgba(255,255,255,.6)';}
+  if(btn){btn.disabled=true;}
+  try{
+    var res=await fetch(S.scriptUrl+'?action=login&pin='+encodeURIComponent(pin));
+    var data=await res.json();
+    if(data.status==='ok'&&data.role){
+      S.role=data.role;
+      sessionStorage.setItem('bb_role',data.role);
+      finishSetup(false);
+    }else{
+      if(st){st.textContent=data.message||'PIN이 올바르지 않습니다.';st.style.color='#fca5a5';}
+      if(el)el.value='';
+      if(btn){btn.disabled=false;}
+      setTimeout(function(){if(el)el.focus();},100);
+    }
+  }catch(e){
+    if(st){st.textContent='서버에 연결할 수 없습니다.';st.style.color='#fca5a5';}
+    if(btn){btn.disabled=false;}
+  }
+}
 function finishSetup(asAdmin){
   S.setupDone=true;
   if(asAdmin){
     if(!S.scriptUrl){S.role='admin';sessionStorage.setItem('bb_role','admin');}
     else{S.role=null;sessionStorage.removeItem('bb_role');}
   } else {
-    S.role='user';sessionStorage.setItem('bb_role','user');
+    if(!S.role){S.role='user';sessionStorage.setItem('bb_role','user');}
     S.teamLocked=true;
   }
   save();
