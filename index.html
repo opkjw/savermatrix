@@ -345,6 +345,7 @@ function parseRosterSiblings(roster){
         p.siblings=s.split(',').map(function(x){return parseInt(x.trim());}).filter(function(n){return!isNaN(n);});
       }
     }
+    if(!Array.isArray(p.siblings))p.siblings=[];
   });
 }
 function getSiblingGroup(){
@@ -352,7 +353,7 @@ function getSiblingGroup(){
   // 같은 번호가 타자/투수 두 항목으로 있을 수 있으므로 모든 항목에서 siblings 수집
   var sibNos=[];
   ROSTER.filter(function(x){return x.no===S.myPlayer;}).forEach(function(me){
-    if(me.siblings)me.siblings.forEach(function(s){if(sibNos.indexOf(s)<0)sibNos.push(s);});
+    if(Array.isArray(me.siblings))me.siblings.forEach(function(s){if(sibNos.indexOf(s)<0)sibNos.push(s);});
   });
   if(!sibNos.length)return[];
   var seen=new Set();
