@@ -508,10 +508,16 @@ function renderLogin(){
   }
   if(S.role){ol.style.display='none';return;}
   ol.style.display='flex';
+  var isParent=S.teamLocked;
+  var pinTitle=isParent?'안녕하세요 👋':'모야모야-우리아이 야구 기록';
+  var pinSub=isParent
+    ?'<div style="font-size:15px;font-weight:700;color:#fff;margin-bottom:4px">'+esc(S.schoolName||'')+'</div>'
+      +'<div style="font-size:13px;color:rgba(255,255,255,.6);line-height:1.6">감독/코치에게 받은<br>학부모 PIN을 입력해주세요</div>'
+    :'<div style="font-size:13px;color:rgba(255,255,255,.6)">코치/감독, 기록자 또는 학부모 PIN을 입력하세요</div>';
   ol.innerHTML='<div class="pin-wrap">'
-    +'<div class="pin-logo">⚾</div>'
-    +'<div class="pin-title">모야모야-우리아이 야구 기록</div>'
-    +'<div class="pin-sub">코치/감독, 기록자 또는 학부모 PIN을 입력하세요</div>'
+    +'<div class="pin-logo">'+(isParent?'👨‍👩‍👦':'⚾')+'</div>'
+    +'<div class="pin-title">'+pinTitle+'</div>'
+    +'<div style="margin-bottom:24px;text-align:center">'+pinSub+'</div>'
     +'<input class="pin-input" id="pin-input" type="password" inputmode="numeric" maxlength="8" placeholder="PIN 입력" autocomplete="off" onkeydown="if(event.key===&apos;Enter&apos;)doLogin()">'
     +'<div class="pin-err" id="pin-err"></div>'
     +'<button class="pin-btn primary" onclick="doLogin()">로그인</button>'
