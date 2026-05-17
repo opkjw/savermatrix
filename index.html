@@ -277,6 +277,7 @@ let S={
   curPit:null,pitSub:0,
   // 통계
   sprayPlayer:null,pitFocus:null,statsFilter:'all',batShowAll:false,pitShowAll:false,statTab:0,
+  batSortKey:null,batSortDir:'desc',pitSortKey:null,pitSortDir:'asc',
   // 기록
   logGameId:null,calMonth:null,myPlayer:null,logView:'player',logExpanded:{},logPitView:'player',pitExpanded:{},logSection:'bat',
   // 설정
@@ -1729,6 +1730,17 @@ function rPitTile(s,myNo){
 function rNoRecMsg(name,type){
   return'<div style="margin:0 12px 12px;padding:18px;background:var(--card);border:1px solid var(--bdr);border-radius:var(--rl);text-align:center;color:var(--txt2);font-size:13px">'+esc(name)+'의 '+type+' 기록이 없습니다.</div>';
 }
+function sortStatCol(table,key){
+  if(table==='bat'){
+    if(S.batSortKey===key){S.batSortDir=S.batSortDir==='desc'?'asc':'desc';}
+    else{S.batSortKey=key;S.batSortDir='desc';}
+  } else {
+    var asc=['era','whip','fip','bb','bb9'];
+    if(S.pitSortKey===key){S.pitSortDir=S.pitSortDir==='desc'?'asc':'desc';}
+    else{S.pitSortKey=key;S.pitSortDir=asc.indexOf(key)>=0?'asc':'desc';}
+  }
+  renderCt();
+}
 function rStats(){
   const missingCnt=S.games.filter(function(g){return S.syncedIds.has('g_'+g.id)&&!S.downloadedGids.has(g.id);}).length;
   const loadingBanner=S.statsLoading
@@ -1779,23 +1791,39 @@ function rStats(){
   }
 
   // 역할별 테이블 행 필터
-  const batRows=(isAdmin?bs:bs.filter(s=>Number(s.no)===myNo)).slice().sort((a,b)=>b.avg-a.avg);
-  const pitRows=(isAdmin?ps:ps.filter(s=>Number(s.no)===myNo)).slice().sort((a,b)=>{var ae=(!isFinite(a.era)||isNaN(a.era))?999:a.era;var be=(!isFinite(b.era)||isNaN(b.era))?999:b.era;return ae-be;});
+  var bsk=isAdmin&&S.batSortKey?S.batSortKey:null;
+  var bsd=S.batSortDir||'desc';
+  const batRows=(isAdmin?bs:bs.filter(s=>Number(s.no)===myNo)).slice().sort(function(a,b){
+    if(bsk){var av=isNaN(a[bsk])||!isFinite(a[bsk])?-Infinity:(a[bsk]||0);var bv=isNaN(b[bsk])||!isFinite(b[bsk])?-Infinity:(b[bsk]||0);return bsd==='desc'?bv-av:av-bv;}
+    return b.avg-a.avg;
+  });
+  var psk=isAdmin&&S.pitSortKey?S.pitSortKey:null;
+  var psd=S.pitSortDir||'asc';
+  const pitRows=(isAdmin?ps:ps.filter(s=>Number(s.no)===myNo)).slice().sort(function(a,b){
+    if(psk){var av=isNaN(a[psk])||!isFinite(a[psk])?999:(a[psk]||0);var bv=isNaN(b[psk])||!isFinite(b[psk])?999:(b[psk]||0);return psd==='desc'?bv-av:av-bv;}
+    var ae=(!isFinite(a.era)||isNaN(a.era))?999:a.era;var be=(!isFinite(b.era)||isNaN(b.era))?999:b.era;return ae-be;
+  });
 
   if(st===0){
     // ── 타자 ────────────────────────────────────────────────
     if(bs.length&&batRows.length){
       const activeSprayNo=S.sprayPlayer!==null?S.sprayPlayer:(isAdmin&&myBatSt?Number(myBatSt.no):null);
       h+='<div class="seclbl">⚾ 타자 기본 기록 <span style="font-size:10px;font-weight:400;color:var(--txt2)">— 이름 탭 → '+(isAdmin?'스프레이+세이버 연동':'스프레이 차트')+'</span></div>'
-        +'<div class="statwrap"><table><thead><tr>'
-        +'<th style="text-align:left;min-width:62px">선수</th>'
-        +'<th class="sth" onclick="showStatInfo(\'PA\')">PA</th><th class="sth" onclick="showStatInfo(\'AB\')">AB</th>'
-        +'<th class="sth" onclick="showStatInfo(\'H\')">H</th><th class="sth" onclick="showStatInfo(\'2B\')">2B</th>'
-        +'<th class="sth" onclick="showStatInfo(\'3B\')">3B</th><th class="sth" onclick="showStatInfo(\'HR\')" style="color:#fca5a5">HR</th>'
-        +'<th class="sth" onclick="showStatInfo(\'RBI\')">RBI</th><th class="sth" onclick="showStatInfo(\'R\')">R</th>'
-        +'<th class="sth" onclick="showStatInfo(\'BB\')">BB</th><th class="sth" onclick="showStatInfo(\'K\')">K</th>'
-        +'<th class="sth" onclick="showStatInfo(\'SB\')">SB</th>'
-        +'</tr></thead><tbody>';
+        +(function(){
+          function bh(label,key,style){
+            if(isAdmin){var a=bsk===key;return'<th class="sth" onclick="sortStatCol(\'bat\',\''+key+'\')" style="cursor:pointer;'+(style||'')+(a?'color:var(--navy)':'')+'">'+'<span>'+label+'</span>'+(a?'<span style="font-size:9px;vertical-align:middle">&nbsp;'+(bsd==='desc'?'▼':'▲')+'</span>':'')+'</th>';}
+            return'<th class="sth" onclick="showStatInfo(\''+key+'\')" style="'+(style||'')+'">'+label+'</th>';
+          }
+          return'<div class="statwrap"><table><thead><tr>'
+            +'<th style="text-align:left;min-width:62px">선수</th>'
+            +bh('PA','pa')+bh('AB','ab')
+            +bh('H','h')+bh('2B','d2')
+            +bh('3B','d3')+bh('HR','hr','color:#fca5a5;')
+            +bh('RBI','rbi')+bh('R','run')
+            +bh('BB','bb')+bh('K','so')
+            +bh('SB','sb')
+            +'</tr></thead><tbody>';
+        }())
       batRows.forEach(s=>{
         const sel=Number(s.no)===activeSprayNo;
         const bg=sel?'background:rgba(27,58,107,.13);':'';
@@ -1824,11 +1852,17 @@ function rStats(){
     if(ps.length&&pitRows.length){
       const ptbtn=(isAdmin&&pitSaberFocusNo!==null)?'<button onclick="S.pitShowAll='+(!pitShowAll)+';renderCt()" style="margin-left:auto;background:none;border:1px solid var(--bdr);border-radius:12px;padding:2px 10px;font-size:11px;color:var(--txt2);cursor:pointer;font-family:inherit">'+(pitShowAll?'선택만 ▲':'전체 선수 ▼')+'</button>':'';
       h+='<div class="seclbl">🎯 투수 기본 기록 <span style="font-size:10px;font-weight:400;color:var(--txt2)">— 이름 탭 → 세이버 연동</span></div>'
-        +'<div class="statwrap"><table class="pit"><thead><tr>'
-        +'<th style="text-align:left;min-width:62px">선수</th>'
-        +'<th>G</th><th>IP</th><th>H</th><th>BB</th>'
-        +'<th style="color:#93c5fd">K</th><th style="color:#fca5a5">HR</th><th>ER</th><th>R</th>'
-        +'</tr></thead><tbody>';
+        +(function(){
+          function ph(label,key,style){
+            if(isAdmin){var a=psk===key;return'<th class="sth" onclick="sortStatCol(\'pit\',\''+key+'\')" style="cursor:pointer;'+(style||'')+(a?'color:var(--navy)':'')+'">'+'<span>'+label+'</span>'+(a?'<span style="font-size:9px;vertical-align:middle">&nbsp;'+(psd==='desc'?'▼':'▲')+'</span>':'')+'</th>';}
+            return'<th style="'+(style||'')+'">'+label+'</th>';
+          }
+          return'<div class="statwrap"><table class="pit"><thead><tr>'
+            +'<th style="text-align:left;min-width:62px">선수</th>'
+            +ph('G','g')+ph('IP','ipf')+ph('H','h')+ph('BB','bb')
+            +ph('K','k','color:#93c5fd;')+ph('HR','hr','color:#fca5a5;')+ph('ER','er')+ph('R','r')
+            +'</tr></thead><tbody>';
+        }())
       pitRows.forEach(s=>{
         const sel=Number(s.no)===pitSaberFocusNo;
         const bg=sel?'background:rgba(146,43,33,.13);':'';
