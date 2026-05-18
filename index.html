@@ -539,6 +539,7 @@ async function doLogin(){
     var data=await res.json();
     if(data.status==='ok'&&data.role){
       sessionStorage.setItem('bb_role',data.role);
+      if(data.role!=='user'){S.sprayPlayer=null;S.pitFocus=null;}
       S.role=data.role;
       document.getElementById('login-overlay').style.display='none';
       r();
@@ -550,6 +551,7 @@ async function doLogin(){
   }
 }
 function localLogin(){
+  S.sprayPlayer=null;S.pitFocus=null;
   sessionStorage.setItem('bb_role','admin');
   S.role='admin';
   document.getElementById('login-overlay').style.display='none';
