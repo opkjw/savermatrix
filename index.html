@@ -2419,22 +2419,25 @@ function applyPitBaseAdv(oc){
   var b={b1:S.pitBases.b1,b2:S.pitBases.b2,b3:S.pitBases.b3};
   var scored=[];
   var batEarned=(oc!=='E'&&oc!=='KWP');
+  var pp=ROSTER.find(function(x){return x.no===S.curPit;});
+  var curPno=pp?pp.no:null;var curPn=pp?pp.name:'?';
+  var nr=function(earned){return{earned:earned,pno:curPno,pn:curPn};};
   if(oc==='HR'){
     if(b.b1)scored.push(b.b1);if(b.b2)scored.push(b.b2);if(b.b3)scored.push(b.b3);
-    scored.push({earned:batEarned});
+    scored.push(nr(batEarned));
     b.b1=null;b.b2=null;b.b3=null;
   }else if(oc==='3B'){
     if(b.b1)scored.push(b.b1);if(b.b2)scored.push(b.b2);if(b.b3)scored.push(b.b3);
-    b.b1=null;b.b2=null;b.b3={earned:batEarned};
+    b.b1=null;b.b2=null;b.b3=nr(batEarned);
   }else if(oc==='2B'){
     if(b.b3)scored.push(b.b3);if(b.b2)scored.push(b.b2);
-    b.b3=b.b1?b.b1:null;b.b2={earned:batEarned};b.b1=null;
+    b.b3=b.b1?b.b1:null;b.b2=nr(batEarned);b.b1=null;
   }else if(oc==='1B'){
     if(b.b3)scored.push(b.b3);
-    b.b3=b.b2;b.b2=b.b1;b.b1={earned:batEarned};
+    b.b3=b.b2;b.b2=b.b1;b.b1=nr(batEarned);
   }else if(oc==='E'){
     if(b.b3)scored.push(b.b3);
-    b.b3=b.b2;b.b2=b.b1;b.b1={earned:false};
+    b.b3=b.b2;b.b2=b.b1;b.b1=nr(false);
   }else if(oc==='BB'||oc==='IBB'||oc==='HBP'||oc==='KWP'){
     if(b.b1!=null){
       if(b.b2!=null){
@@ -2443,10 +2446,10 @@ function applyPitBaseAdv(oc){
         b.b2=b.b1;
       }else{b.b2=b.b1;}
     }
-    b.b1={earned:batEarned};
+    b.b1=nr(batEarned);
   }else if(oc==='FC'){
     S.pitOuts++;
-    b.b1={earned:true};
+    b.b1=nr(true);
   }else if(oc==='K'||oc==='GO'||oc==='FO'){
     S.pitOuts++;
   }else if(oc==='DP'){
@@ -2460,13 +2463,12 @@ function applyPitBaseAdv(oc){
     b.b3=b.b2;b.b2=b.b1;b.b1=null;
   }
   S.pitBases={b1:b.b1,b2:b.b2,b3:b.b3};
-  if(scored.length&&S.curPit!=null){
-    var pp=ROSTER.find(function(x){return x.no===S.curPit;});
-    if(pp){
-      scored.forEach(function(r){S.pit_runs.push({id:UID(),gid:S.game.id,pno:pp.no,pn:pp.name,earned:r.earned});});
-      var erC=scored.filter(function(r){return r.earned;}).length;
-      var uerC=scored.length-erC;
-    }
+  if(scored.length){
+    scored.forEach(function(r){
+      var rPno=r.pno!=null?r.pno:curPno;
+      var rPn=r.pn||curPn;
+      S.pit_runs.push({id:UID(),gid:S.game.id,pno:rPno,pn:rPn,earned:r.earned});
+    });
   }
   if(S.pitOuts>=3)S.pitOuts=3;
 }
@@ -2529,10 +2531,13 @@ function pitRunnerScore(base){
 function pitConfirmRun(earned){
   if(!S.game)return;
   var base=S._pitScoreBase;
+  var runner=base&&S.pitBases?S.pitBases[base]:null;
   if(base&&S.pitBases)S.pitBases[base]=null;
   S._pitScoreBase=null;
-  var p=ROSTER.find(function(x){return x.no===S.curPit;});
-  if(p){S.pit_runs.push({id:UID(),gid:S.game.id,pno:p.no,pn:p.name,earned:earned});save();}
+  var rPno=runner&&runner.pno!=null?runner.pno:null;
+  var rPn=runner&&runner.pn?runner.pn:null;
+  if(!rPno){var p=ROSTER.find(function(x){return x.no===S.curPit;});if(p){rPno=p.no;rPn=p.name;}}
+  if(rPno){S.pit_runs.push({id:UID(),gid:S.game.id,pno:rPno,pn:rPn,earned:earned});save();}
   toast((earned?'자책점':'비자책점')+' 기록','ok');
   closeModal();renderGHdr();renderCt();
 }
