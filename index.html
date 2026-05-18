@@ -976,15 +976,19 @@ function renderGHdr(){
   var scoreHtml='';
   if(S.game&&(S.tab===0||S.tab===1)){
     var sc=gameScore(S.game.id);
+    var innDisp=(S.inning||1)+(S.topBot==='bot'?'▼':'▲');
     scoreHtml='<div class="gh-score">'
+      +'<div style="font-size:12px;font-weight:700;text-align:center;letter-spacing:1px;margin-bottom:1px;opacity:.9">'+innDisp+'</div>'
       +'<div class="gh-score-num">'+sc.our+' : '+sc.opp+'</div>'
       +'<div class="gh-score-lbl"><span>우리</span><span>상대</span></div>'
       +'</div>';
   }
+  var typeBadge=S.game?(S.game.type==='P'
+    ?'<span style="background:#f59e0b;color:#78350f;border-radius:3px;padding:1px 5px;font-size:10px;font-weight:600">연습</span>'
+    :'<span style="background:#22c55e;color:#14532d;border-radius:3px;padding:1px 5px;font-size:10px;font-weight:600">정식</span>'):'';
   document.getElementById('ghdr').innerHTML=S.game
     ?('<div class="ghdr"><div><div class="gh-title">vs '+esc(S.game.opp)+'</div>'
-      +'<div class="gh-sub">'+esc(S.game.date)+(S.game.no!=null?' · G'+String(S.game.no).padStart(2,'0'):'')
-      +(S.game.type==='P'?' · <span style="background:rgba(255,255,255,.25);border-radius:3px;padding:1px 6px;font-size:10px">연습</span>':'')
+      +'<div class="gh-sub">'+esc(S.game.date)+' · '+typeBadge
       +'</div></div>'
       +scoreHtml
       +'<div class="gh-right">'
