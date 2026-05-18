@@ -108,6 +108,8 @@ tr:nth-child(even) td{background:var(--bg2)}
 .hi{color:var(--navy);font-weight:600}.hir{color:var(--red);font-weight:600}
 .sth{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;text-decoration-color:rgba(255,255,255,.5)}
 .sth:active{opacity:.7}
+.undobtn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;border:1.5px solid var(--red);background:transparent;color:var(--red);font-size:12px;font-weight:600;cursor:pointer}
+.undobtn:active{opacity:.7}
 .seclbl{padding:10px 14px 4px;font-size:11px;font-weight:600;color:var(--txt2);letter-spacing:.04em;text-transform:uppercase}
 .empty{padding:40px 20px;text-align:center;color:var(--txt2)}
 .cfgwrap{padding:12px}
@@ -1067,6 +1069,12 @@ function getAllowedNos(){
 }
 function rBatPSel(){
   let h=rBaseDiagram();
+  var undoSnap=S.undoStack&&S.undoStack.length?S.undoStack[S.undoStack.length-1]:null;
+  if(undoSnap){
+    h+='<div style="display:flex;justify-content:flex-end;padding:4px 14px 0">'
+      +'<button class="undobtn" onclick="undoBat()">↩ '+esc(undoSnap.pn)+' '+esc(undoSnap.ocl)+' 취소</button>'
+      +'</div>';
+  }
   h+='<div class="seclbl">선수 선택</div><div class="pgrid">';
   const allowedNos=getAllowedNos();
   ROSTER.filter(p=>p.r==='b'&&(!allowedNos||allowedNos.indexOf(p.no)>=0)).forEach(p=>{
@@ -2257,7 +2265,7 @@ function endGame(){
   var gid=S.game.id;
   var gi=S.games.findIndex(function(x){return x.id===gid;});
   if(gi>=0){S.games[gi].status='ended';S.syncedIds.delete('g_'+gid);}
-  S.game=null;S.curPit=null;S.bs=0;S.batSub=0;S.ps=0;
+  S.game=null;S.curPit=null;S.bs=0;S.batSub=0;S.ps=0;S.undoStack=[];
   save();r();toast('경기 종료 — 동기화 중...');
   unlockGame(gid);
   if(S.scriptUrl&&navigator.onLine){pushGamesOnly();doSync();}
@@ -2266,7 +2274,7 @@ function leaveGame(){
   if(!S.game)return;
   if(!confirm('경기에서 나가시겠습니까?\n경기 기록은 유지됩니다.'))return;
   var gid=S.game.id;
-  S.game=null;S.curPit=null;S.bs=0;S.batSub=0;S.ps=0;
+  S.game=null;S.curPit=null;S.bs=0;S.batSub=0;S.ps=0;S.undoStack=[];
   save();r();toast('경기에서 나왔습니다');
   unlockGame(gid);
 }
@@ -2365,10 +2373,27 @@ function saveBat(){
   if(!S.game){toast('경기를 먼저 시작해주세요','err');return;}
   const p=ROSTER.find(x=>x.no===S.bp);
   if(BIP_OC.includes(S.bo)&&!S.bzone){toast('타구 방향을 선택해주세요','err');return;}
-  S.blog.push({id:UID(),gid:S.game.id,date:S.game.date,opp:S.game.opp,
+  var newId=UID();
+  var runMap={};
+  S.blog.filter(function(e){return e.gid===S.game.id;}).forEach(function(e){runMap[e.id]=e.run||0;});
+  if(!S.undoStack)S.undoStack=[];
+  S.undoStack.push({entryId:newId,pn:p.name,ocl:ocInfo(S.bo).l,
+    bases:{b1:S.bases.b1,b2:S.bases.b2,b3:S.bases.b3},outs:S.outs||0,runMap:runMap});
+  S.blog.push({id:newId,gid:S.game.id,date:S.game.date,opp:S.game.opp,
     pno:p.no,pn:p.name,oc:S.bo,rbi:S.brbi,run:0,sb:S.bsb,cs:S.bcs,zone:S.bzone});
   applyBaseAdvancement(S.bo,p.no);
   save();toast(p.name+' '+ocInfo(S.bo).l+' 저장!','ok');S.bs=0;S.bzone=null;r();
+}
+function undoBat(){
+  if(!S.undoStack||!S.undoStack.length){toast('취소할 기록이 없습니다','err');return;}
+  var snap=S.undoStack.pop();
+  var idx=S.blog.findIndex(function(e){return e.id===snap.entryId;});
+  if(idx>=0)S.blog.splice(idx,1);
+  S.blog.filter(function(e){return e.gid===S.game.id;}).forEach(function(e){
+    if(snap.runMap[e.id]!==undefined)e.run=snap.runMap[e.id];
+  });
+  S.bases=snap.bases;S.outs=snap.outs;
+  save();toast(snap.pn+' '+snap.ocl+' 기록 취소','ok');r();
 }
 function pitSelOC(id){
   if(!S.game){toast('경기를 먼저 시작해주세요','err');return;}
