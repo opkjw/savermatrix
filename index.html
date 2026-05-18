@@ -1069,6 +1069,8 @@ function getAllowedNos(){
 }
 function rBatPSel(){
   let h=rBaseDiagram();
+  var undoSnap=S.undoStack&&S.undoStack.length?S.undoStack[S.undoStack.length-1]:null;
+  if(undoSnap)h+='<div style="display:flex;justify-content:flex-end;padding:4px 14px 0"><button class="undobtn" onclick="undoLast()">↩ '+esc(undoSnap.label)+'</button></div>';
   h+='<div class="seclbl">선수 선택</div><div class="pgrid">';
   const allowedNos=getAllowedNos();
   ROSTER.filter(p=>p.r==='b'&&(!allowedNos||allowedNos.indexOf(p.no)>=0)).forEach(p=>{
@@ -2596,13 +2598,9 @@ function rBaseDiagram(){
   var dots='';
   for(var i=0;i<3;i++)dots+='<span style="width:11px;height:11px;border-radius:50%;background:'+(i<outs?'#dc2626':'var(--bdr)')+';display:inline-block;margin:0 2px"></span>';
   var h='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:var(--rl);margin:8px 12px;padding:12px">';
-  var undoSnap=S.undoStack&&S.undoStack.length?S.undoStack[S.undoStack.length-1]:null;
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
   h+='<span style="font-size:11px;font-weight:700;color:var(--txt)">⚾ 베이스 현황</span>';
-  h+='<div style="display:flex;align-items:center;gap:6px">';
   h+='<div style="display:flex;align-items:center;gap:4px"><span style="font-size:10px;color:var(--txt2)">아웃</span>'+dots+'</div>';
-  if(undoSnap)h+='<button class="undobtn" onclick="undoLast()">↩ '+esc(undoSnap.label)+'</button>';
-  h+='</div>';
   h+='</div>';
   h+='<div style="display:flex;flex-direction:column;align-items:center;gap:10px">';
   h+='<div>'+baseSlot('b2','2루')+'</div>';
