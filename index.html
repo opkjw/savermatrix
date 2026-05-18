@@ -1085,9 +1085,37 @@ function rOCSel(mode){
   const isP=mode==='pit';
   const p=isP?ROSTER.find(x=>String(x.no)===String(S.curPit)):ROSTER.find(x=>String(x.no)===String(S.bp));
   if(!p)return'<div class="empty">선수를 먼저 선택하세요</div>';
-  let h='<div class="shdr"><button class="back" onclick="'+(isP?'S.curPit=null':'S.bs=0')+';r()">←</button>'
-    +'<div><div class="s-title">'+esc(p.name)+' <span style="font-size:11px;color:var(--txt2)">#'+p.no+'</span></div>'
-    +'<div class="s-sub">'+(isP?'상대 타자 결과 입력':'타석 결과 선택')+'</div></div></div>';
+  var h;
+  if(isP){
+    const st=calcPitStats(S.curPit,S.game?S.game.id:null);
+    const innLbl=(S.inning||1)+'회'+(S.topBot==='bot'?'말':'초');
+    const ab='background:none;border:none;color:var(--txt2);font-size:11px;padding:2px 4px;min-width:28px;min-height:36px;cursor:pointer;line-height:1';
+    h='<div class="shdr" style="gap:6px">'
+      +'<button class="back" onclick="S.curPit=null;r()">←</button>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div class="s-title">'+esc(p.name)+' <span style="font-size:11px;color:var(--txt2)">#'+p.no+'</span></div>'
+      +'<div class="s-sub">상대 타자 결과 입력</div>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;gap:1px;flex-shrink:0">'
+      +'<button onclick="adjInning(-1)" style="'+ab+'">◀</button>'
+      +'<span style="font-size:12px;font-weight:700;color:var(--navy);min-width:34px;text-align:center">'+innLbl+'</span>'
+      +'<button onclick="adjInning(1)" style="'+ab+'">▶</button>'
+      +'</div>'
+      +'<div style="text-align:center;flex-shrink:0">'
+      +'<div style="font-size:14px;font-weight:700;color:var(--txt);line-height:1">'+st.ipd+'</div>'
+      +'<div style="font-size:10px;color:var(--txt2);margin-top:1px">이닝</div>'
+      +'</div>'
+      +'<div style="text-align:center;flex-shrink:0">'
+      +'<div style="font-size:14px;font-weight:700;color:var(--red);line-height:1">'+st.er+'</div>'
+      +'<div style="font-size:10px;color:var(--txt2);margin-top:1px">자책</div>'
+      +'</div>'
+      +'<button class="pchg" onclick="S.curPit=null;r()" style="font-size:12px;padding:6px 10px">⇄ 교체</button>'
+      +'</div>';
+  }else{
+    h='<div class="shdr"><button class="back" onclick="S.bs=0;r()">←</button>'
+      +'<div><div class="s-title">'+esc(p.name)+' <span style="font-size:11px;color:var(--txt2)">#'+p.no+'</span></div>'
+      +'<div class="s-sub">타석 결과 선택</div></div></div>';
+  }
   h+='<div class="ocsec"><div class="oclbl">안타 / 출루</div><div class="ocgrid">';
   [...OC_HIT,...OC_OB].forEach(o=>{
     h+='<button class="ocbtn" style="background:'+o.bg+';color:'+o.fg+'" onclick="'+(isP?'pitSelOC':'selOC')+'(\''+o.id+'\')">'+o.l+'</button>';
@@ -1156,36 +1184,7 @@ function rPitTab(){
   }
   const p=ROSTER.find(x=>String(x.no)===String(S.curPit));
   if(!p){S.curPit=null;return rPitTab();}
-  const gid=S.game?S.game.id:null;
-  const st=calcPitStats(S.curPit,gid);
-  var divider='<div style="width:1px;background:var(--bdr);flex-shrink:0"></div>';
-  let h='<div class="pcard" style="padding:0;overflow:hidden">'
-    +'<div style="display:flex;align-items:stretch">'
-    +'<div style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 12px;min-width:0">'
-    +'<div class="pav">'+p.no+'</div>'
-    +'<div style="min-width:0"><div class="pcard-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.name)+'</div>'
-    +'<div class="pcard-role">'+esc(p.pos)+' · 투구 중</div></div>'
-    +'</div>'
-    +divider
-    +'<div style="display:flex;align-items:center;padding:0 6px;flex-shrink:0">'
-    +'<button onclick="adjInning(-1)" style="background:none;border:none;color:var(--txt2);font-size:12px;padding:4px 6px;min-width:28px;min-height:36px;cursor:pointer;line-height:1">◀</button>'
-    +'<span style="font-size:13px;font-weight:700;color:var(--navy);min-width:38px;text-align:center">'+(S.inning||1)+'회'+(S.topBot==='bot'?'말':'초')+'</span>'
-    +'<button onclick="adjInning(1)" style="background:none;border:none;color:var(--txt2);font-size:12px;padding:4px 6px;min-width:28px;min-height:36px;cursor:pointer;line-height:1">▶</button>'
-    +'</div>'
-    +divider
-    +'<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 14px;flex-shrink:0">'
-    +'<div style="font-size:16px;font-weight:700;color:var(--txt);line-height:1">'+st.ipd+'</div>'
-    +'<div style="font-size:11px;color:var(--txt2);margin-top:3px">이닝</div>'
-    +'</div>'
-    +divider
-    +'<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 14px;flex-shrink:0">'
-    +'<div style="font-size:16px;font-weight:700;color:var(--red);line-height:1">'+st.er+'</div>'
-    +'<div style="font-size:11px;color:var(--txt2);margin-top:3px">자책</div>'
-    +'</div>'
-    +divider
-    +'<button class="pchg" onclick="S.curPit=null;r()" style="border-radius:0;border:none;padding:10px 14px;flex-shrink:0">⇄ 교체</button>'
-    +'</div></div>';
-  h+=rOCSel('pit');
+  let h=rOCSel('pit');
   h+=rPitBaseDiagram();
   var gidNow=S.game?S.game.id:null;
   var runsNow=S.pit_runs.filter(function(e){return e.pno===S.curPit&&(gidNow?e.gid===gidNow:true);});
