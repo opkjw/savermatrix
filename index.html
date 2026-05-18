@@ -976,15 +976,19 @@ function renderGHdr(){
   var scoreHtml='';
   if(S.game&&(S.tab===0||S.tab===1)){
     var sc=gameScore(S.game.id);
+    var innDisp=(S.inning||1)+(S.topBot==='bot'?'▼':'▲');
     scoreHtml='<div class="gh-score">'
+      +'<div style="position:absolute;right:100%;top:50%;transform:translateY(-50%);margin-right:5px;font-size:13px;font-weight:700;opacity:.9;white-space:nowrap">'+innDisp+'</div>'
       +'<div class="gh-score-num">'+sc.our+' : '+sc.opp+'</div>'
       +'<div class="gh-score-lbl"><span>우리</span><span>상대</span></div>'
       +'</div>';
   }
+  var typeBadge=S.game?(S.game.type==='P'
+    ?'<span style="background:#f59e0b;color:#78350f;border-radius:3px;padding:1px 5px;font-size:10px;font-weight:600">연습</span>'
+    :'<span style="background:#22c55e;color:#14532d;border-radius:3px;padding:1px 5px;font-size:10px;font-weight:600">정식</span>'):'';
   document.getElementById('ghdr').innerHTML=S.game
     ?('<div class="ghdr"><div><div class="gh-title">vs '+esc(S.game.opp)+'</div>'
-      +'<div class="gh-sub">'+esc(S.game.date)+(S.game.no!=null?' · G'+String(S.game.no).padStart(2,'0'):'')
-      +(S.game.type==='P'?' · <span style="background:rgba(255,255,255,.25);border-radius:3px;padding:1px 6px;font-size:10px">연습</span>':'')
+      +'<div class="gh-sub">'+esc(S.game.date)+' · '+typeBadge
       +'</div></div>'
       +scoreHtml
       +'<div class="gh-right">'
@@ -1085,15 +1089,39 @@ function rOCSel(mode){
   const isP=mode==='pit';
   const p=isP?ROSTER.find(x=>String(x.no)===String(S.curPit)):ROSTER.find(x=>String(x.no)===String(S.bp));
   if(!p)return'<div class="empty">선수를 먼저 선택하세요</div>';
-  let h='<div class="shdr"><button class="back" onclick="'+(isP?'S.curPit=null':'S.bs=0')+';r()">←</button>'
-    +'<div><div class="s-title">'+esc(p.name)+' <span style="font-size:11px;color:var(--txt2)">#'+p.no+'</span></div>'
-    +'<div class="s-sub">'+(isP?'상대 타자 결과 입력':'타석 결과 선택')+'</div></div></div>';
+  var h;
+  if(isP){
+    const st=calcPitStats(S.curPit,S.game?S.game.id:null);
+    const innLbl=(S.inning||1)+'회'+(S.topBot==='bot'?'말':'초');
+    const ab='background:none;border:none;color:var(--txt2);font-size:11px;padding:2px 4px;min-width:28px;min-height:36px;cursor:pointer;line-height:1';
+    h='<div class="shdr" style="gap:6px">'
+      +'<button class="back" onclick="S.curPit=null;r()">←</button>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div class="s-title">'+esc(p.name)+' <span style="font-size:11px;color:var(--txt2)">#'+p.no+'</span></div>'
+      +'<div class="s-sub">상대 타자 결과 입력</div>'
+      +'</div>'
+      +'<div style="text-align:center;flex-shrink:0">'
+      +'<div style="font-size:14px;font-weight:700;color:var(--txt);line-height:1">'+st.ipd+'</div>'
+      +'<div style="font-size:10px;color:var(--txt2);margin-top:1px">이닝</div>'
+      +'</div>'
+      +'<div style="text-align:center;flex-shrink:0">'
+      +'<div style="font-size:14px;font-weight:700;color:var(--red);line-height:1">'+st.er+'</div>'
+      +'<div style="font-size:10px;color:var(--txt2);margin-top:1px">자책</div>'
+      +'</div>'
+      +'<button class="pchg" onclick="S.curPit=null;r()" style="font-size:12px;padding:6px 10px">⇄ 교체</button>'
+      +'</div>';
+  }else{
+    h='<div class="shdr"><button class="back" onclick="S.bs=0;r()">←</button>'
+      +'<div><div class="s-title">'+esc(p.name)+' <span style="font-size:11px;color:var(--txt2)">#'+p.no+'</span></div>'
+      +'<div class="s-sub">타석 결과 선택</div></div></div>';
+  }
   h+='<div class="ocsec"><div class="oclbl">안타 / 출루</div><div class="ocgrid">';
   [...OC_HIT,...OC_OB].forEach(o=>{
     h+='<button class="ocbtn" style="background:'+o.bg+';color:'+o.fg+'" onclick="'+(isP?'pitSelOC':'selOC')+'(\''+o.id+'\')">'+o.l+'</button>';
   });
   h+='</div><div class="oclbl" style="margin-top:8px">아웃</div><div class="ocgrid">';
   OC_OUT.forEach(o=>{
+    if(isP&&o.id==='SH')return;
     h+='<button class="ocbtn" style="background:'+o.bg+';color:'+o.fg+'" onclick="'+(isP?'pitSelOC':'selOC')+'(\''+o.id+'\')">'+o.l+'</button>';
   });
   h+='</div></div>';
@@ -1155,21 +1183,9 @@ function rPitTab(){
   }
   const p=ROSTER.find(x=>String(x.no)===String(S.curPit));
   if(!p){S.curPit=null;return rPitTab();}
-  const gid=S.game?S.game.id:null;
-  const st=calcPitStats(S.curPit,gid);
-  let h='<div class="pcard">'
-    +'<div class="pcard-hdr"><div class="pcard-l">'
-    +'<div class="pav">'+p.no+'</div>'
-    +'<div><div class="pcard-name">'+esc(p.name)+'</div><div class="pcard-role">'+esc(p.pos)+' · 투구 중</div></div>'
-    +'</div><button class="pchg" onclick="S.curPit=null;r()">⇄ 교체</button></div>'
-    +'<div class="pstats">'
-    +['<div class="pstat em"><div class="pstat-val">'+st.ipd+'</div><div class="pstat-lbl">IP</div></div>',
-      '<div class="pstat"><div class="pstat-val">'+st.h+'</div><div class="pstat-lbl">피안타</div></div>',
-      '<div class="pstat"><div class="pstat-val">'+st.bb+'</div><div class="pstat-lbl">볼넷</div></div>',
-      '<div class="pstat"><div class="pstat-val">'+st.k+'</div><div class="pstat-lbl">삼진</div></div>',
-      '<div class="pstat em"><div class="pstat-val">'+st.er+'</div><div class="pstat-lbl">자책</div></div>',
-    ].join('')+'</div></div>';
-  h+=rOCSel('pit');
+  let h=rOCSel('pit');
+  var pitUndoSnap=S.pitUndoStack&&S.pitUndoStack.length?S.pitUndoStack[S.pitUndoStack.length-1]:null;
+  if(pitUndoSnap)h+='<div style="display:flex;justify-content:flex-end;padding:4px 14px 0"><button class="undobtn" onclick="undoPitLast()">↩ '+esc(pitUndoSnap.label)+'</button></div>';
   h+=rPitBaseDiagram();
   var gidNow=S.game?S.game.id:null;
   var runsNow=S.pit_runs.filter(function(e){return e.pno===S.curPit&&(gidNow?e.gid===gidNow:true);});
@@ -2261,7 +2277,7 @@ function endGame(){
   var gid=S.game.id;
   var gi=S.games.findIndex(function(x){return x.id===gid;});
   if(gi>=0){S.games[gi].status='ended';S.syncedIds.delete('g_'+gid);}
-  S.game=null;S.curPit=null;S.bs=0;S.batSub=0;S.ps=0;S.undoStack=[];
+  S.game=null;S.curPit=null;S.bs=0;S.batSub=0;S.ps=0;S.undoStack=[];S.pitUndoStack=[];
   save();r();toast('경기 종료 — 동기화 중...');
   unlockGame(gid);
   if(S.scriptUrl&&navigator.onLine){pushGamesOnly();doSync();}
@@ -2270,7 +2286,7 @@ function leaveGame(){
   if(!S.game)return;
   if(!confirm('경기에서 나가시겠습니까?\n경기 기록은 유지됩니다.'))return;
   var gid=S.game.id;
-  S.game=null;S.curPit=null;S.bs=0;S.batSub=0;S.ps=0;S.undoStack=[];
+  S.game=null;S.curPit=null;S.bs=0;S.batSub=0;S.ps=0;S.undoStack=[];S.pitUndoStack=[];
   save();r();toast('경기에서 나왔습니다');
   unlockGame(gid);
 }
@@ -2282,7 +2298,7 @@ function forceEndGame(gid){
   if(!confirm('경기를 강제 종료하시겠습니까?\n\n'+label+'\n\n종료 후 삭제할 수 있습니다.'))return;
   const gi=S.games.findIndex(function(x){return x.id===gid;});
   if(gi>=0){S.games[gi].status='ended';S.syncedIds.delete('g_'+gid);}
-  if(S.game&&S.game.id===gid){S.game=null;S.curPit=null;S.bs=0;S.batSub=0;S.ps=0;S.undoStack=[];unlockGame(gid);}
+  if(S.game&&S.game.id===gid){S.game=null;S.curPit=null;S.bs=0;S.batSub=0;S.ps=0;S.undoStack=[];S.pitUndoStack=[];unlockGame(gid);}
   save();renderCt();toast('경기가 강제 종료됐습니다','ok');
   if(S.scriptUrl&&navigator.onLine)pushGamesOnly();
 }
@@ -2397,10 +2413,33 @@ function undoLast(){
   if(snap.topBot!=null)S.topBot=snap.topBot;
   save();toast(snap.label+' 취소','ok');r();
 }
+function snapPitSt(label,bfId){
+  if(!S.game)return null;
+  if(!S.pitBases)S.pitBases={b1:null,b2:null,b3:null};
+  return{label:label,bfId:bfId||null,
+    pitBases:{b1:S.pitBases.b1,b2:S.pitBases.b2,b3:S.pitBases.b3},
+    pitOuts:typeof S.pitOuts==='number'?S.pitOuts:0,
+    inning:S.inning||1,topBot:S.topBot||'top',
+    prevRunIds:S.pit_runs.filter(function(r){return r.gid===S.game.id;}).map(function(r){return r.id;})};
+}
+function pushPitUndo(snap){if(!snap)return;if(!S.pitUndoStack)S.pitUndoStack=[];S.pitUndoStack.push(snap);}
+function undoPitLast(){
+  if(!S.pitUndoStack||!S.pitUndoStack.length){toast('취소할 기록이 없습니다','err');return;}
+  var snap=S.pitUndoStack.pop();
+  if(snap.bfId){var idx=S.pit_bf.findIndex(function(e){return e.id===snap.bfId;});if(idx>=0)S.pit_bf.splice(idx,1);}
+  var prevIds=snap.prevRunIds||[];
+  S.pit_runs=S.pit_runs.filter(function(r){return r.gid!==S.game.id||prevIds.indexOf(r.id)>=0;});
+  S.pitBases=snap.pitBases;S.pitOuts=snap.pitOuts;
+  if(snap.inning!=null)S.inning=snap.inning;
+  if(snap.topBot!=null)S.topBot=snap.topBot;
+  save();toast(snap.label+' 취소','ok');renderGHdr();r();
+}
 function pitSelOC(id){
   if(!S.game){toast('경기를 먼저 시작해주세요','err');return;}
   const p=ROSTER.find(x=>x.no===S.curPit);
-  S.pit_bf.push({id:UID(),gid:S.game.id,date:S.game.date,opp:S.game.opp,pno:p.no,pn:p.name,oc:id});
+  var newBfId=UID();
+  pushPitUndo(snapPitSt(p.name+' '+ocInfo(id).l,newBfId));
+  S.pit_bf.push({id:newBfId,gid:S.game.id,date:S.game.date,opp:S.game.opp,pno:p.no,pn:p.name,oc:id});
   var prevRuns=S.pit_runs.length;
   applyPitBaseAdv(id);
   save();
@@ -2419,22 +2458,25 @@ function applyPitBaseAdv(oc){
   var b={b1:S.pitBases.b1,b2:S.pitBases.b2,b3:S.pitBases.b3};
   var scored=[];
   var batEarned=(oc!=='E'&&oc!=='KWP');
+  var pp=ROSTER.find(function(x){return x.no===S.curPit;});
+  var curPno=pp?pp.no:null;var curPn=pp?pp.name:'?';
+  var nr=function(earned){return{earned:earned,pno:curPno,pn:curPn};};
   if(oc==='HR'){
     if(b.b1)scored.push(b.b1);if(b.b2)scored.push(b.b2);if(b.b3)scored.push(b.b3);
-    scored.push({earned:batEarned});
+    scored.push(nr(batEarned));
     b.b1=null;b.b2=null;b.b3=null;
   }else if(oc==='3B'){
     if(b.b1)scored.push(b.b1);if(b.b2)scored.push(b.b2);if(b.b3)scored.push(b.b3);
-    b.b1=null;b.b2=null;b.b3={earned:batEarned};
+    b.b1=null;b.b2=null;b.b3=nr(batEarned);
   }else if(oc==='2B'){
     if(b.b3)scored.push(b.b3);if(b.b2)scored.push(b.b2);
-    b.b3=b.b1?b.b1:null;b.b2={earned:batEarned};b.b1=null;
+    b.b3=b.b1?b.b1:null;b.b2=nr(batEarned);b.b1=null;
   }else if(oc==='1B'){
     if(b.b3)scored.push(b.b3);
-    b.b3=b.b2;b.b2=b.b1;b.b1={earned:batEarned};
+    b.b3=b.b2;b.b2=b.b1;b.b1=nr(batEarned);
   }else if(oc==='E'){
     if(b.b3)scored.push(b.b3);
-    b.b3=b.b2;b.b2=b.b1;b.b1={earned:false};
+    b.b3=b.b2;b.b2=b.b1;b.b1=nr(false);
   }else if(oc==='BB'||oc==='IBB'||oc==='HBP'||oc==='KWP'){
     if(b.b1!=null){
       if(b.b2!=null){
@@ -2443,10 +2485,10 @@ function applyPitBaseAdv(oc){
         b.b2=b.b1;
       }else{b.b2=b.b1;}
     }
-    b.b1={earned:batEarned};
+    b.b1=nr(batEarned);
   }else if(oc==='FC'){
     S.pitOuts++;
-    b.b1={earned:true};
+    b.b1=nr(true);
   }else if(oc==='K'||oc==='GO'||oc==='FO'){
     S.pitOuts++;
   }else if(oc==='DP'){
@@ -2460,13 +2502,12 @@ function applyPitBaseAdv(oc){
     b.b3=b.b2;b.b2=b.b1;b.b1=null;
   }
   S.pitBases={b1:b.b1,b2:b.b2,b3:b.b3};
-  if(scored.length&&S.curPit!=null){
-    var pp=ROSTER.find(function(x){return x.no===S.curPit;});
-    if(pp){
-      scored.forEach(function(r){S.pit_runs.push({id:UID(),gid:S.game.id,pno:pp.no,pn:pp.name,earned:r.earned});});
-      var erC=scored.filter(function(r){return r.earned;}).length;
-      var uerC=scored.length-erC;
-    }
+  if(scored.length){
+    scored.forEach(function(r){
+      var rPno=r.pno!=null?r.pno:curPno;
+      var rPn=r.pn||curPn;
+      S.pit_runs.push({id:UID(),gid:S.game.id,pno:rPno,pn:rPn,earned:r.earned});
+    });
   }
   if(S.pitOuts>=3)S.pitOuts=3;
 }
@@ -2480,7 +2521,9 @@ function rPitBaseDiagram(){
     if(runner!=null){
       var rc=runner.earned?'#dc2626':'#6b7280';
       var rb=runner.earned?'#fee2e2':'var(--bg2)';
-      h+='<div style="background:'+rb+';color:'+rc+';border:1.5px solid '+rc+';border-radius:6px;padding:5px 4px;font-size:11px;font-weight:700">주자·'+(runner.earned?'자책':'비자책')+'</div>';
+      var inherited=runner.pno!=null&&runner.pno!==S.curPit;
+      var runnerLbl=inherited?(runner.pn?runner.pn.slice(0,4):'전투수'):'주자';
+      h+='<div style="background:'+rb+';color:'+rc+';border:1.5px solid '+rc+';border-radius:6px;padding:5px 4px;font-size:11px;font-weight:700">'+runnerLbl+'·'+(runner.earned?'자책':'비자책')+'</div>';
       h+='<div style="display:flex;gap:3px;margin-top:4px;justify-content:center">';
       h+='<button onclick="pitRunnerScore(\''+key+'\')" style="background:#dc2626;color:#fff;border:none;border-radius:4px;padding:6px 8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">득점</button>';
       h+='<button onclick="pitRunnerSteal(\''+key+'\')" style="background:#2563eb;color:#fff;border:none;border-radius:4px;padding:6px 8px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit">진루</button>';
@@ -2494,10 +2537,17 @@ function rPitBaseDiagram(){
   var outs=S.pitOuts||0;
   var dots='';
   for(var i=0;i<3;i++)dots+='<span style="width:11px;height:11px;border-radius:50%;background:'+(i<outs?'#dc2626':'var(--bdr)')+';display:inline-block;margin:0 2px"></span>';
+  var innLbl=(S.inning||1)+'회'+(S.topBot==='bot'?'말':'초');
+  var adjBtnSt='background:none;border:none;color:var(--txt2);font-size:12px;padding:2px 4px;cursor:pointer;line-height:1';
   var h='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:var(--rl);margin:8px 12px;padding:12px">';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
   h+='<span style="font-size:11px;font-weight:700;color:var(--txt)">🎯 상대팀 베이스</span>';
-  h+='<div style="display:flex;align-items:center;gap:6px"><span style="font-size:10px;color:var(--txt2)">아웃</span>'+dots+'</div>';
+  h+='<div style="display:flex;align-items:center;gap:2px">'
+    +'<button style="'+adjBtnSt+'" onclick="adjInning(-1)">◀</button>'
+    +'<span style="font-size:12px;font-weight:700;color:var(--navy);min-width:38px;text-align:center">'+innLbl+'</span>'
+    +'<button style="'+adjBtnSt+'" onclick="adjInning(1)">▶</button>'
+    +'</div>';
+  h+='<div style="display:flex;align-items:center;gap:4px"><span style="font-size:10px;color:var(--txt2)">아웃</span>'+dots+'</div>';
   h+='</div>';
   h+='<div style="display:flex;flex-direction:column;align-items:center;gap:10px">';
   h+='<div>'+pitSlot('b2','2루')+'</div>';
@@ -2528,16 +2578,22 @@ function pitRunnerScore(base){
 }
 function pitConfirmRun(earned){
   if(!S.game)return;
+  pushPitUndo(snapPitSt((earned?'자책점':'비자책점')+' 득점'));
   var base=S._pitScoreBase;
+  var runner=base&&S.pitBases?S.pitBases[base]:null;
   if(base&&S.pitBases)S.pitBases[base]=null;
   S._pitScoreBase=null;
-  var p=ROSTER.find(function(x){return x.no===S.curPit;});
-  if(p){S.pit_runs.push({id:UID(),gid:S.game.id,pno:p.no,pn:p.name,earned:earned});save();}
+  var rPno=runner&&runner.pno!=null?runner.pno:null;
+  var rPn=runner&&runner.pn?runner.pn:null;
+  if(!rPno){var p=ROSTER.find(function(x){return x.no===S.curPit;});if(p){rPno=p.no;rPn=p.name;}}
+  if(rPno){S.pit_runs.push({id:UID(),gid:S.game.id,pno:rPno,pn:rPn,earned:earned});save();}
   toast((earned?'자책점':'비자책점')+' 기록','ok');
   closeModal();renderGHdr();renderCt();
 }
 function pitRunnerSteal(base){
   if(!S.pitBases||!S.pitBases[base])return;
+  var toBase=base==='b1'?'2루 진루':base==='b2'?'3루 진루':'홈 진루';
+  pushPitUndo(snapPitSt('주자 '+toBase));
   var runner=S.pitBases[base];
   if(base==='b1'){if(!S.pitBases.b2){S.pitBases.b2=runner;S.pitBases.b1=null;}else toast('2루에 주자 있음','err');}
   else if(base==='b2'){if(!S.pitBases.b3){S.pitBases.b3=runner;S.pitBases.b2=null;}else toast('3루에 주자 있음','err');}
@@ -2546,14 +2602,18 @@ function pitRunnerSteal(base){
 }
 function pitRunnerOut(base){
   if(!S.pitBases)return;
+  pushPitUndo(snapPitSt('주자 아웃'));
   S.pitBases[base]=null;
   S.pitOuts=(S.pitOuts||0)+1;
   if(S.pitOuts>=3){S.pitOuts=3;toast('3아웃 — 이닝 종료 버튼을 눌러주세요','ok');}
   save();renderCt();
 }
 function pitEndInning(){
+  var innLbl=(S.inning||1)+'회'+(S.topBot==='bot'?'말':'초');
+  pushPitUndo(snapPitSt(innLbl+' 이닝 종료'));
+  advanceInning();
   S.pitBases={b1:null,b2:null,b3:null};S.pitOuts=0;
-  save();renderCt();toast('이닝 종료','ok');
+  save();renderGHdr();renderCt();toast('이닝 종료','ok');
 }
 function addBatRun(pno){
   if(!S.game){toast('경기를 먼저 시작해주세요','err');return;}
@@ -2568,6 +2628,7 @@ function addBatRun(pno){
 function addPitRun(earned){
   if(!S.game){toast('경기를 먼저 시작해주세요','err');return;}
   const p=ROSTER.find(x=>x.no===S.curPit);
+  pushPitUndo(snapPitSt(p.name+' '+(earned?'자책점':'비자책점')+' (수동)'));
   S.pit_runs.push({id:UID(),gid:S.game.id,pno:p.no,pn:p.name,earned});
   save();toast(p.name+' '+(earned?'자책점':'비자책점'),'ok');renderGHdr();renderCt();
 }
@@ -2758,13 +2819,13 @@ function adjInning(d){
     if(S.topBot==='bot'){S.topBot='top';}
     else{S.inning=Math.max((S.inning||1)-1,1);S.topBot='bot';}
   }
-  save();renderCt();
+  save();renderGHdr();renderCt();
 }
 function endInning(){
   var innLbl=(S.inning||1)+'회'+(S.topBot==='bot'?'말':'초');
   pushUndo(snapBaseSt(innLbl+' 이닝 종료'));
   advanceInning();
-  S.bases={b1:null,b2:null,b3:null};S.outs=0;save();renderCt();toast('이닝 종료','ok');
+  S.bases={b1:null,b2:null,b3:null};S.outs=0;save();renderGHdr();renderCt();toast('이닝 종료','ok');
 }
 function showTiebreakerModal(){
   S._tb2=null;S._tb1=null;
