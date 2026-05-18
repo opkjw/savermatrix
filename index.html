@@ -3064,6 +3064,7 @@ function toggleSibling(no,sibNo){
     else if(!adding&&i>=0)p.siblings.splice(i,1);
   });
   S.rosterDirty=true;save();
+  if(S.scriptUrl){API.saveRoster(ROSTER).then(function(rd){if(rd&&rd.status==='ok'){S.rosterDirty=false;save();}}).catch(function(){});}
   var modal=ROSTER.find(function(x){return x.no===no;});
   showEditPlayerModal(no,modal?modal.r:'b');
 }
@@ -3638,6 +3639,9 @@ async function loadFromSheets(){
   if(!S.scriptUrl){toast('먼저 URL을 저장해주세요','err');return;}
   S.loading=true;r();
   try{
+    if(S.rosterDirty){
+      try{const rd=await API.saveRoster(ROSTER);if(rd&&rd.status==='ok')S.rosterDirty=false;}catch(e){}
+    }
     const data=await API.fetchAll();
     if(data.status!=='ok')throw new Error(data.message||'오류');
 
@@ -3664,7 +3668,15 @@ async function loadFromSheets(){
     S.pit_bf=[...(data.pit_bf||[]),...unsyncedPitBf.filter(e=>!svrPitBfIds.has(e.id)&&!tombSet.has(e.gid))];
     S.pit_runs=[...(data.pit_runs||[]),...unsyncedPitRuns.filter(e=>!svrPitRunIds.has(e.id)&&!tombSet.has(e.gid))];
 
-    if(data.roster&&data.roster.length>0){parseRosterSiblings(data.roster);ROSTER.splice(0,ROSTER.length,...data.roster);S.rosterDirty=false;}
+    if(data.roster&&data.roster.length>0){
+      if(S.rosterDirty){
+        var _sibMap={};
+        ROSTER.forEach(function(p){if(p.siblings&&p.siblings.length)_sibMap[String(p.no)+'-'+(p.r||'b')]=p.siblings;});
+        parseRosterSiblings(data.roster);
+        data.roster.forEach(function(p){var k=String(p.no)+'-'+(p.r||'b');if((!p.siblings||!p.siblings.length)&&_sibMap[k])p.siblings=_sibMap[k];});
+      }else{parseRosterSiblings(data.roster);}
+      ROSTER.splice(0,ROSTER.length,...data.roster);
+    }
 
     // syncedIds + downloadedGids 재구성
     S.syncedIds=new Set();
