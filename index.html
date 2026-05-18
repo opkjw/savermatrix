@@ -976,16 +976,9 @@ function renderGHdr(){
   var scoreHtml='';
   if(S.game&&(S.tab===0||S.tab===1)){
     var sc=gameScore(S.game.id);
-    var innLbl=(S.inning||1)+'회'+(S.topBot==='bot'?'말':'초');
-    var iBtn='background:none;border:none;color:rgba(255,255,255,.7);font-size:12px;padding:1px 4px;cursor:pointer';
-    scoreHtml='<div class="gh-score" style="pointer-events:auto">'
+    scoreHtml='<div class="gh-score">'
       +'<div class="gh-score-num">'+sc.our+' : '+sc.opp+'</div>'
       +'<div class="gh-score-lbl"><span>우리</span><span>상대</span></div>'
-      +'<div style="display:flex;align-items:center;justify-content:center;gap:2px;margin-top:4px">'
-      +'<button style="'+iBtn+'" onclick="adjInning(-1)">◀</button>'
-      +'<span style="font-size:11px;font-weight:700;letter-spacing:.5px;min-width:36px;text-align:center">'+innLbl+'</span>'
-      +'<button style="'+iBtn+'" onclick="adjInning(1)">▶</button>'
-      +'</div>'
       +'</div>';
   }
   document.getElementById('ghdr').innerHTML=S.game
@@ -2605,10 +2598,17 @@ function rBaseDiagram(){
   var dots='';
   for(var i=0;i<3;i++)dots+='<span style="width:11px;height:11px;border-radius:50%;background:'+(i<outs?'#dc2626':'var(--bdr)')+';display:inline-block;margin:0 2px"></span>';
   var h='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:var(--rl);margin:8px 12px;padding:12px">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
+  var innLbl=(S.inning||1)+'회'+(S.topBot==='bot'?'말':'초');
+  var adjBtnSt='background:none;border:none;color:var(--txt2);font-size:13px;padding:2px 5px;cursor:pointer;line-height:1';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
   h+='<span style="font-size:11px;font-weight:700;color:var(--txt)">⚾ 베이스 현황</span>';
   h+='<div style="display:flex;align-items:center;gap:4px"><span style="font-size:10px;color:var(--txt2)">아웃</span>'+dots+'</div>';
   h+='</div>';
+  h+='<div style="display:flex;align-items:center;justify-content:center;gap:4px;margin-bottom:10px">'
+    +'<button style="'+adjBtnSt+'" onclick="adjInning(-1)">◀</button>'
+    +'<span style="font-size:13px;font-weight:700;color:var(--navy);min-width:44px;text-align:center">'+innLbl+'</span>'
+    +'<button style="'+adjBtnSt+'" onclick="adjInning(1)">▶</button>'
+    +'</div>';
   h+='<div style="display:flex;flex-direction:column;align-items:center;gap:10px">';
   h+='<div>'+baseSlot('b2','2루')+'</div>';
   h+='<div style="display:flex;gap:16px;width:100%;justify-content:space-between">'+baseSlot('b3','3루')+baseSlot('b1','1루')+'</div>';
@@ -2756,7 +2756,7 @@ function adjInning(d){
     if(S.topBot==='bot'){S.topBot='top';}
     else{S.inning=Math.max((S.inning||1)-1,1);S.topBot='bot';}
   }
-  save();renderGHdr();renderCt();
+  save();renderCt();
 }
 function endInning(){
   advanceInning();
