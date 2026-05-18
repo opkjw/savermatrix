@@ -17,7 +17,7 @@ html,body{height:100%;overflow:hidden;background:#000}
 body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans KR',sans-serif}
 #app{max-width:430px;margin:0 auto;height:100%;display:flex;flex-direction:column;background:var(--bg)}
 .ghdr{background:var(--navy);color:#fff;padding:11px 14px;padding-top:calc(11px + env(safe-area-inset-top,0px));display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:relative}
-.gh-score{position:absolute;left:50%;transform:translateX(-50%);text-align:center;line-height:1;pointer-events:none;display:flex;align-items:center;gap:6px}
+.gh-score{position:absolute;left:50%;transform:translateX(-50%);text-align:center;line-height:1;pointer-events:none}
 .gh-score-num{font-size:20px;font-weight:700;letter-spacing:2px}
 .gh-score-lbl{font-size:11px;opacity:.8;display:flex;justify-content:space-between;margin-top:3px}
 .gh-title{font-size:15px;font-weight:600}.gh-sub{font-size:11px;opacity:.72;margin-top:2px}
@@ -978,11 +978,9 @@ function renderGHdr(){
     var sc=gameScore(S.game.id);
     var innDisp=(S.inning||1)+(S.topBot==='bot'?'▼':'▲');
     scoreHtml='<div class="gh-score">'
-      +'<div style="font-size:13px;font-weight:700;letter-spacing:1px;opacity:.9;line-height:1">'+innDisp+'</div>'
-      +'<div style="text-align:center;line-height:1">'
+      +'<div style="position:absolute;right:100%;top:50%;transform:translateY(-50%);margin-right:5px;font-size:13px;font-weight:700;opacity:.9;white-space:nowrap">'+innDisp+'</div>'
       +'<div class="gh-score-num">'+sc.our+' : '+sc.opp+'</div>'
       +'<div class="gh-score-lbl"><span>우리</span><span>상대</span></div>'
-      +'</div>'
       +'</div>';
   }
   var typeBadge=S.game?(S.game.type==='P'
