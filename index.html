@@ -1069,12 +1069,6 @@ function getAllowedNos(){
 }
 function rBatPSel(){
   let h=rBaseDiagram();
-  var undoSnap=S.undoStack&&S.undoStack.length?S.undoStack[S.undoStack.length-1]:null;
-  if(undoSnap){
-    h+='<div style="display:flex;justify-content:flex-end;padding:4px 14px 0">'
-      +'<button class="undobtn" onclick="undoBat()">↩ '+esc(undoSnap.pn)+' '+esc(undoSnap.ocl)+' 취소</button>'
-      +'</div>';
-  }
   h+='<div class="seclbl">선수 선택</div><div class="pgrid">';
   const allowedNos=getAllowedNos();
   ROSTER.filter(p=>p.r==='b'&&(!allowedNos||allowedNos.indexOf(p.no)>=0)).forEach(p=>{
@@ -2286,7 +2280,7 @@ function forceEndGame(gid){
   if(!confirm('경기를 강제 종료하시겠습니까?\n\n'+label+'\n\n종료 후 삭제할 수 있습니다.'))return;
   const gi=S.games.findIndex(function(x){return x.id===gid;});
   if(gi>=0){S.games[gi].status='ended';S.syncedIds.delete('g_'+gid);}
-  if(S.game&&S.game.id===gid){S.game=null;S.curPit=null;S.bs=0;S.batSub=0;S.ps=0;unlockGame(gid);}
+  if(S.game&&S.game.id===gid){S.game=null;S.curPit=null;S.bs=0;S.batSub=0;S.ps=0;S.undoStack=[];unlockGame(gid);}
   save();renderCt();toast('경기가 강제 종료됐습니다','ok');
   if(S.scriptUrl&&navigator.onLine)pushGamesOnly();
 }
@@ -2369,31 +2363,35 @@ function adj(key,d){
   S[key]=Math.max(0,(S[key]||0)+d);
   const el=document.getElementById('ev-'+key);if(el)el.textContent=S[key];
 }
+function snapBaseSt(label,batEntry){
+  if(!S.game)return null;
+  var snap={label:label,batEntry:batEntry||null,bases:{b1:S.bases.b1,b2:S.bases.b2,b3:S.bases.b3},outs:S.outs||0,runMap:{},sbMap:{},csMap:{}};
+  S.blog.filter(function(e){return e.gid===S.game.id;}).forEach(function(e){snap.runMap[e.id]=e.run||0;snap.sbMap[e.id]=e.sb||0;snap.csMap[e.id]=e.cs||0;});
+  return snap;
+}
+function pushUndo(snap){if(!snap)return;if(!S.undoStack)S.undoStack=[];S.undoStack.push(snap);}
 function saveBat(){
   if(!S.game){toast('경기를 먼저 시작해주세요','err');return;}
   const p=ROSTER.find(x=>x.no===S.bp);
   if(BIP_OC.includes(S.bo)&&!S.bzone){toast('타구 방향을 선택해주세요','err');return;}
   var newId=UID();
-  var runMap={};
-  S.blog.filter(function(e){return e.gid===S.game.id;}).forEach(function(e){runMap[e.id]=e.run||0;});
-  if(!S.undoStack)S.undoStack=[];
-  S.undoStack.push({entryId:newId,pn:p.name,ocl:ocInfo(S.bo).l,
-    bases:{b1:S.bases.b1,b2:S.bases.b2,b3:S.bases.b3},outs:S.outs||0,runMap:runMap});
+  pushUndo(snapBaseSt(p.name+' '+ocInfo(S.bo).l,newId));
   S.blog.push({id:newId,gid:S.game.id,date:S.game.date,opp:S.game.opp,
     pno:p.no,pn:p.name,oc:S.bo,rbi:S.brbi,run:0,sb:S.bsb,cs:S.bcs,zone:S.bzone});
   applyBaseAdvancement(S.bo,p.no);
   save();toast(p.name+' '+ocInfo(S.bo).l+' 저장!','ok');S.bs=0;S.bzone=null;r();
 }
-function undoBat(){
+function undoLast(){
   if(!S.undoStack||!S.undoStack.length){toast('취소할 기록이 없습니다','err');return;}
   var snap=S.undoStack.pop();
-  var idx=S.blog.findIndex(function(e){return e.id===snap.entryId;});
-  if(idx>=0)S.blog.splice(idx,1);
+  if(snap.batEntry){var idx=S.blog.findIndex(function(e){return e.id===snap.batEntry;});if(idx>=0)S.blog.splice(idx,1);}
   S.blog.filter(function(e){return e.gid===S.game.id;}).forEach(function(e){
     if(snap.runMap[e.id]!==undefined)e.run=snap.runMap[e.id];
+    if(snap.sbMap[e.id]!==undefined)e.sb=snap.sbMap[e.id];
+    if(snap.csMap[e.id]!==undefined)e.cs=snap.csMap[e.id];
   });
   S.bases=snap.bases;S.outs=snap.outs;
-  save();toast(snap.pn+' '+snap.ocl+' 기록 취소','ok');r();
+  save();toast(snap.label+' 취소','ok');r();
 }
 function pitSelOC(id){
   if(!S.game){toast('경기를 먼저 시작해주세요','err');return;}
@@ -2598,9 +2596,13 @@ function rBaseDiagram(){
   var dots='';
   for(var i=0;i<3;i++)dots+='<span style="width:11px;height:11px;border-radius:50%;background:'+(i<outs?'#dc2626':'var(--bdr)')+';display:inline-block;margin:0 2px"></span>';
   var h='<div style="background:var(--card);border:1px solid var(--bdr);border-radius:var(--rl);margin:8px 12px;padding:12px">';
+  var undoSnap=S.undoStack&&S.undoStack.length?S.undoStack[S.undoStack.length-1]:null;
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
   h+='<span style="font-size:11px;font-weight:700;color:var(--txt)">⚾ 베이스 현황</span>';
+  h+='<div style="display:flex;align-items:center;gap:6px">';
   h+='<div style="display:flex;align-items:center;gap:4px"><span style="font-size:10px;color:var(--txt2)">아웃</span>'+dots+'</div>';
+  if(undoSnap)h+='<button class="undobtn" onclick="undoLast()">↩ '+esc(undoSnap.label)+'</button>';
+  h+='</div>';
   h+='</div>';
   h+='<div style="display:flex;flex-direction:column;align-items:center;gap:10px">';
   h+='<div>'+baseSlot('b2','2루')+'</div>';
@@ -2697,6 +2699,8 @@ function applyBaseAdvancement(oc,pno){
 function advanceBase(base){
   var pno=S.bases[base];if(pno==null)return;
   var p=ROSTER.find(function(x){return Number(x.no)===Number(pno);});
+  var lbl=(p?p.name:'선수')+(base==='b3'?' 홈인':base==='b2'?' 3루 진루':' 2루 진루');
+  pushUndo(snapBaseSt(lbl));
   if(base==='b3'){
     scoreRunnerBase(pno);
     var sc=S.game?gameScore(S.game.id):{our:0,opp:0};
@@ -2712,24 +2716,29 @@ function advanceBase(base){
 }
 function stealBase(base){
   var pno=S.bases[base];if(pno==null)return;
+  var p=ROSTER.find(function(x){return Number(x.no)===Number(pno);});
+  pushUndo(snapBaseSt((p?p.name:'선수')+' 도루 성공'));
   if(base==='b1'){S.bases.b2=pno;S.bases.b1=null;}
   else if(base==='b2'){S.bases.b3=pno;S.bases.b2=null;}
   else if(base==='b3'){scoreRunnerBase(pno);S.bases.b3=null;}
   if(S.game){var ents=S.blog.filter(function(e){return e.gid===S.game.id&&Number(e.pno)===Number(pno);});if(ents.length)ents[ents.length-1].sb=(ents[ents.length-1].sb||0)+1;}
   save();renderGHdr();renderCt();
-  var p=ROSTER.find(function(x){return Number(x.no)===Number(pno);});
   toast((p?p.name:'선수')+' 도루 성공!','ok');
 }
 function caughtBase(base){
   var pno=S.bases[base];if(pno==null)return;
+  var p=ROSTER.find(function(x){return Number(x.no)===Number(pno);});
+  pushUndo(snapBaseSt((p?p.name:'선수')+' 도루 실패'));
   S.bases[base]=null;S.outs=(S.outs||0)+1;
   if(S.game){var ents=S.blog.filter(function(e){return e.gid===S.game.id&&Number(e.pno)===Number(pno);});if(ents.length)ents[ents.length-1].cs=(ents[ents.length-1].cs||0)+1;}
   save();renderCt();
-  var p=ROSTER.find(function(x){return Number(x.no)===Number(pno);});
   toast((p?p.name:'선수')+' 도루 실패','');
 }
 function removeFromBase(base){
-  if(S.bases[base]==null)return;S.bases[base]=null;S.outs=(S.outs||0)+1;save();renderCt();
+  var pno=S.bases[base];if(pno==null)return;
+  var p=ROSTER.find(function(x){return Number(x.no)===Number(pno);});
+  pushUndo(snapBaseSt((p?p.name:'선수')+' 아웃'));
+  S.bases[base]=null;S.outs=(S.outs||0)+1;save();renderCt();
 }
 function endInning(){
   S.bases={b1:null,b2:null,b3:null};S.outs=0;save();renderCt();toast('이닝 종료','ok');
