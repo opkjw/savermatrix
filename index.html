@@ -1811,8 +1811,7 @@ function rStats(){
       h+='<div class="seclbl">⚾ 타자 기본 기록 <span style="font-size:10px;font-weight:400;color:var(--txt2)">— 이름 탭 → '+(isAdmin?'스프레이+세이버 연동':'스프레이 차트')+'</span></div>'
         +(function(){
           function bh(label,key,style){
-            if(isAdmin){var a=bsk===key;return'<th class="sth" onclick="sortStatCol(\'bat\',\''+key+'\')" style="cursor:pointer;'+(style||'')+(a?'color:var(--navy);':'')+'">'
-              +label+(a?'<sup style="font-size:8px;opacity:.8">'+(bsd==='desc'?'▼':'▲')+'</sup>':'')+'</th>';}
+            if(isAdmin){var a=bsk===key;return'<th class="sth" onclick="sortStatCol(\'bat\',\''+key+'\')" style="cursor:pointer;'+(style||'')+(a?'background:#2d5299;':'')+'">'+label+(a?'<sup style="font-size:8px;color:#fcd34d">'+(bsd==='desc'?'▼':'▲')+'</sup>':'')+'</th>';}
             return'<th class="sth" onclick="showStatInfo(\''+label+'\')" style="'+(style||'')+'">'+label+'</th>';
           }
           return'<div class="statwrap"><table><thead><tr>'
@@ -1855,8 +1854,7 @@ function rStats(){
       h+='<div class="seclbl">🎯 투수 기본 기록 <span style="font-size:10px;font-weight:400;color:var(--txt2)">— 이름 탭 → 세이버 연동</span></div>'
         +(function(){
           function ph(label,key,style){
-            if(isAdmin){var a=psk===key;return'<th class="sth" onclick="sortStatCol(\'pit\',\''+key+'\')" style="cursor:pointer;'+(style||'')+(a?'color:var(--navy);':'')+'">'
-              +label+(a?'<sup style="font-size:8px;opacity:.8">'+(psd==='desc'?'▼':'▲')+'</sup>':'')+'</th>';}
+            if(isAdmin){var a=psk===key;return'<th class="sth" onclick="sortStatCol(\'pit\',\''+key+'\')" style="cursor:pointer;'+(style||'')+(a?'background:#7a1f1a;':'')+'">'+label+(a?'<sup style="font-size:8px;color:#fcd34d">'+(psd==='desc'?'▼':'▲')+'</sup>':'')+'</th>';}
             return'<th style="'+(style||'')+'">'+label+'</th>';
           }
           return'<div class="statwrap"><table class="pit"><thead><tr>'
