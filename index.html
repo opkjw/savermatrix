@@ -2816,13 +2816,13 @@ function adjInning(d){
     if(S.topBot==='bot'){S.topBot='top';}
     else{S.inning=Math.max((S.inning||1)-1,1);S.topBot='bot';}
   }
-  save();renderCt();
+  save();renderGHdr();renderCt();
 }
 function endInning(){
   var innLbl=(S.inning||1)+'회'+(S.topBot==='bot'?'말':'초');
   pushUndo(snapBaseSt(innLbl+' 이닝 종료'));
   advanceInning();
-  S.bases={b1:null,b2:null,b3:null};S.outs=0;save();renderCt();toast('이닝 종료','ok');
+  S.bases={b1:null,b2:null,b3:null};S.outs=0;save();renderGHdr();renderCt();toast('이닝 종료','ok');
 }
 function showTiebreakerModal(){
   S._tb2=null;S._tb1=null;
