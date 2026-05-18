@@ -1781,8 +1781,8 @@ function rStats(){
   const praG=S.games.filter(g=>g.type==='P').length;
   const myNo=activeNo()!=null?Number(activeNo()):null;
   const isAdmin=S.role==='admin'||!S.role;
-  const saberFocusNo=isAdmin?(S.sprayPlayer!==null?S.sprayPlayer:myNo):myNo;
-  const pitSaberFocusNo=isAdmin?(S.pitFocus!==null?S.pitFocus:myNo):myNo;
+  const saberFocusNo=isAdmin?(S.sprayPlayer!==null?S.sprayPlayer:null):myNo;
+  const pitSaberFocusNo=isAdmin?(S.pitFocus!==null?S.pitFocus:null):myNo;
   const showAll=isAdmin?(S.batShowAll||saberFocusNo===null):false;
   const pitShowAll=isAdmin?(S.pitShowAll||pitSaberFocusNo===null):false;
   const myBatSt=myNo?bs.find(s=>Number(s.no)===myNo):null;
