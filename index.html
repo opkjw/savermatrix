@@ -2367,7 +2367,7 @@ function adj(key,d){
 }
 function snapBaseSt(label,batEntry){
   if(!S.game)return null;
-  var snap={label:label,batEntry:batEntry||null,bases:{b1:S.bases.b1,b2:S.bases.b2,b3:S.bases.b3},outs:S.outs||0,runMap:{},sbMap:{},csMap:{}};
+  var snap={label:label,batEntry:batEntry||null,bases:{b1:S.bases.b1,b2:S.bases.b2,b3:S.bases.b3},outs:S.outs||0,inning:S.inning||1,topBot:S.topBot||'top',runMap:{},sbMap:{},csMap:{}};
   S.blog.filter(function(e){return e.gid===S.game.id;}).forEach(function(e){snap.runMap[e.id]=e.run||0;snap.sbMap[e.id]=e.sb||0;snap.csMap[e.id]=e.cs||0;});
   return snap;
 }
@@ -2393,6 +2393,8 @@ function undoLast(){
     if(snap.csMap[e.id]!==undefined)e.cs=snap.csMap[e.id];
   });
   S.bases=snap.bases;S.outs=snap.outs;
+  if(snap.inning!=null)S.inning=snap.inning;
+  if(snap.topBot!=null)S.topBot=snap.topBot;
   save();toast(snap.label+' 취소','ok');r();
 }
 function pitSelOC(id){
@@ -2759,6 +2761,8 @@ function adjInning(d){
   save();renderCt();
 }
 function endInning(){
+  var innLbl=(S.inning||1)+'회'+(S.topBot==='bot'?'말':'초');
+  pushUndo(snapBaseSt(innLbl+' 이닝 종료'));
   advanceInning();
   S.bases={b1:null,b2:null,b3:null};S.outs=0;save();renderCt();toast('이닝 종료','ok');
 }
