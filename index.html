@@ -2609,8 +2609,9 @@ function pitRunnerOut(base){
 function pitEndInning(){
   var innLbl=(S.inning||1)+'회'+(S.topBot==='bot'?'말':'초');
   pushPitUndo(snapPitSt(innLbl+' 이닝 종료'));
+  advanceInning();
   S.pitBases={b1:null,b2:null,b3:null};S.pitOuts=0;
-  save();renderCt();toast('이닝 종료','ok');
+  save();renderGHdr();renderCt();toast('이닝 종료','ok');
 }
 function addBatRun(pno){
   if(!S.game){toast('경기를 먼저 시작해주세요','err');return;}
