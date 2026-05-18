@@ -1608,7 +1608,7 @@ function rLogMonthly(allGames,calMon,calY,calM){
   let h='';
 
   // 대표 선수 이번달 vs 지난달 주요 타격 지표 3가지
-  if(activeNo()){
+  if(S.role==='user'&&activeNo()){
     const myNo=Number(activeNo());
     const curGids=new Set(monGames.map(g=>g.id));
     const prevGids=new Set(prevGames.map(g=>g.id));
@@ -1670,7 +1670,7 @@ function rLogMonthly(allGames,calMon,calY,calM){
     h+='vs '+esc(g.opp);
     h+=' <span style="background:'+(isOff?'#EBF0FB':'#dcfce7')+';color:'+(isOff?'var(--navy)':'#15803d')+';border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600">'+(isOff?'정식':'연습')+'</span>';
     h+='</div>';
-    if(activeNo()){
+    if(S.role==='user'&&activeNo()){
       var myNo2=Number(activeNo());
       var mpBat2=S.blog.filter(function(e){return e.gid===g.id&&Number(e.pno)===myNo2;});
       var mpPit2=S.pit_bf.filter(function(e){return e.gid===g.id&&Number(e.pno)===myNo2;});
@@ -1779,7 +1779,7 @@ function rStats(){
   const totalG=S.games.length;
   const offG=S.games.filter(g=>(g.type||'O')==='O').length;
   const praG=S.games.filter(g=>g.type==='P').length;
-  const myNo=activeNo()!=null?Number(activeNo()):null;
+  const myNo=(S.role==='user')?(activeNo()!=null?Number(activeNo()):null):null;
   const isAdmin=S.role==='admin'||!S.role;
   const saberFocusNo=isAdmin?(S.sprayPlayer!==null?S.sprayPlayer:null):myNo;
   const pitSaberFocusNo=isAdmin?(S.pitFocus!==null?S.pitFocus:null):myNo;
